@@ -1,0 +1,9 @@
+{
+  "basePath": "D:\\Dy's Sunflower Suite",
+  "dataPath": "data",
+  "autoSaveInterval": 300000,
+  "backupFrequency": "daily",
+  "lastBackup": null,
+  "theme": "sunflower",
+  "version": "4.0.0"
+}
