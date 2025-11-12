@@ -865,8 +865,21 @@ DROP COLUMN old_field FROM cases;  -- ❌ NEVER DO THIS
 
 **Process:**
 1. Design & Planning (read-only)
-2. Database Layer (test in sqlite3)
-3. IPC Bridge (test in console)
+2. Database Layer: **Claude Code's deliverables Below:**
+	A. Create `electron/database/schema-module-x.sql`
+	B. Create `test-database.js` script (using better-sqlite3)
+	C. Run `node test-database.js` and show output
+	**Your verification checklist:**
+		- [ ] Schema file created
+		- [ ] Test script created
+		- [ ] Claude Code ran test and showed output
+		- [ ] Output shows: tables created ✅
+		- [ ] Output shows: INSERT works ✅
+		- [ ] Output shows: SELECT works ✅
+		- [ ] Output shows: UPDATE works ✅
+		- [ ] Output shows: DELETE works ✅
+		- [ ] No errors in output
+3. IPC Bridge (add database methods and IPC handlers)
 4. Components (test in UI)
 5. Integration & Testing (end-to-end)
 6. Documentation (README)
