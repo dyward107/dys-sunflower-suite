@@ -50,6 +50,9 @@ CREATE TABLE IF NOT EXISTS cases (
   -- Notes
   notes TEXT,
 
+  -- Soft Delete
+  is_deleted INTEGER DEFAULT 0,
+
   -- Audit Trail
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

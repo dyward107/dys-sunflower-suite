@@ -1,6 +1,83 @@
-import Database from 'better-sqlite3';
+import initSqlJs, { Database } from 'sql.js';
 import * as path from 'path';
 import * as fs from 'fs';
+
+const SCHEMA_SQL = `
+-- MODULE A PHASE 1A: CORE CASE DATA
+CREATE TABLE IF NOT EXISTS cases (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_name TEXT NOT NULL,
+  cm_number TEXT UNIQUE NOT NULL,
+  lead_attorney TEXT NOT NULL,
+  primary_plaintiff_name TEXT NOT NULL,
+  primary_defendant_name TEXT NOT NULL,
+  venue_court TEXT NOT NULL,
+  venue_judge TEXT,
+  venue_clerk TEXT,
+  venue_staff_attorney TEXT,
+  phase TEXT NOT NULL CHECK(phase IN ('Open', 'Pending', 'Closed')),
+  status TEXT NOT NULL,
+  case_type TEXT NOT NULL,
+  case_subtype TEXT,
+  date_opened DATE NOT NULL,
+  date_of_loss DATE NOT NULL,
+  date_closed DATE,
+  is_wrongful_death INTEGER DEFAULT 0,
+  is_survival_action INTEGER DEFAULT 0,
+  has_deceased_defendants INTEGER DEFAULT 0,
+  discovery_close_date DATE,
+  discovery_deadline_extended INTEGER DEFAULT 0,
+  discovery_deadline_notes TEXT,
+  notes TEXT,
+  is_deleted INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_cases_cm_number ON cases(cm_number);
+CREATE INDEX IF NOT EXISTS idx_cases_lead_attorney ON cases(lead_attorney);
+CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status);
+CREATE INDEX IF NOT EXISTS idx_cases_phase ON cases(phase);
+CREATE INDEX IF NOT EXISTS idx_cases_date_opened ON cases(date_opened);
+
+CREATE TABLE IF NOT EXISTS case_parties (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_id INTEGER NOT NULL,
+  party_type TEXT NOT NULL CHECK(party_type IN ('plaintiff', 'defendant')),
+  party_name TEXT NOT NULL,
+  is_corporate INTEGER DEFAULT 0,
+  is_primary INTEGER DEFAULT 0,
+  is_insured INTEGER DEFAULT 0,
+  is_presuit INTEGER DEFAULT 0,
+  monitor_for_service INTEGER DEFAULT 0,
+  service_date DATE,
+  answer_filed_date DATE,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_case_parties_case_id ON case_parties(case_id);
+CREATE INDEX IF NOT EXISTS idx_case_parties_type ON case_parties(party_type);
+CREATE INDEX IF NOT EXISTS idx_case_parties_name ON case_parties(party_name);
+
+CREATE TABLE IF NOT EXISTS case_policies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_id INTEGER NOT NULL,
+  policy_type TEXT NOT NULL CHECK(policy_type IN ('Primary', 'UM/UIM', 'Excess/Umbrella')),
+  carrier_name TEXT NOT NULL,
+  policy_number TEXT NOT NULL,
+  policy_limits TEXT,
+  we_are_retained_by_carrier INTEGER DEFAULT 0,
+  umuim_type TEXT CHECK(umuim_type IN ('Add-on', 'Set-off', NULL)),
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_case_policies_case_id ON case_policies(case_id);
+CREATE INDEX IF NOT EXISTS idx_case_policies_type ON case_policies(policy_type);
+`;
 
 interface CaseInput {
   case_name: string;
@@ -62,27 +139,68 @@ interface PolicyInput {
 }
 
 export class DatabaseService {
-  private db: Database.Database;
+  private db: Database | null = null;
+  private dbPath: string;
 
   constructor(dbPath: string) {
+    this.dbPath = dbPath;
+  }
+
+  async initialize(): Promise<void> {
     // Ensure data directory exists
-    const dataDir = path.dirname(dbPath);
+    const dataDir = path.dirname(this.dbPath);
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
     }
 
-    // Initialize database
-    this.db = new Database(dbPath);
-    this.db.pragma('foreign_keys = ON');
+    // Initialize sql.js
+    const SQL = await initSqlJs();
+
+    // Load existing database or create new one
+    if (fs.existsSync(this.dbPath)) {
+      const buffer = fs.readFileSync(this.dbPath);
+      this.db = new SQL.Database(buffer);
+    } else {
+      this.db = new SQL.Database();
+    }
+
+    // Enable foreign keys
+    this.db.run('PRAGMA foreign_keys = ON');
 
     // Initialize schema
-    this.initializeSchema();
+    await this.initializeSchema();
   }
 
-  private initializeSchema(): void {
-    const schemaPath = path.join(__dirname, 'schema-module-a.sql');
-    const schema = fs.readFileSync(schemaPath, 'utf-8');
-    this.db.exec(schema);
+  private async initializeSchema(): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    // Execute embedded schema
+    this.db.exec(SCHEMA_SQL);
+
+    // Migration: Add is_deleted column if it doesn't exist (for existing databases)
+    try {
+      // Check if column exists by trying to query it
+      const testQuery = this.db.exec("SELECT is_deleted FROM cases LIMIT 1");
+      // If we get here, column exists - no migration needed
+    } catch (error: any) {
+      // Column doesn't exist, add it
+      try {
+        this.db.exec('ALTER TABLE cases ADD COLUMN is_deleted INTEGER DEFAULT 0');
+        console.log('Migration: Added is_deleted column to cases table');
+      } catch (migrationError: any) {
+        console.error('Migration error:', migrationError.message);
+      }
+    }
+
+    // Save to disk
+    this.save();
+  }
+
+  private save(): void {
+    if (!this.db) return;
+    const data = this.db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(this.dbPath, buffer);
   }
 
   // ============================================================================
@@ -90,7 +208,9 @@ export class DatabaseService {
   // ============================================================================
 
   async createCase(caseData: CaseInput): Promise<number> {
-    const stmt = this.db.prepare(`
+    if (!this.db) throw new Error('Database not initialized');
+
+    const query = `
       INSERT INTO cases (
         case_name, cm_number, lead_attorney,
         primary_plaintiff_name, primary_defendant_name,
@@ -110,9 +230,9 @@ export class DatabaseService {
         ?, ?, ?,
         ?
       )
-    `);
+    `;
 
-    const result = stmt.run(
+    this.db.run(query, [
       caseData.case_name,
       caseData.cm_number,
       caseData.lead_attorney,
@@ -136,13 +256,20 @@ export class DatabaseService {
       caseData.discovery_deadline_extended ? 1 : 0,
       caseData.discovery_deadline_notes || null,
       caseData.notes || null
-    );
+    ]);
 
-    return result.lastInsertRowid as number;
+    // Get last insert ID
+    const result = this.db.exec('SELECT last_insert_rowid() as id');
+    const id = result[0].values[0][0] as number;
+
+    this.save();
+    return id;
   }
 
   async getCases(filters?: CaseFilters): Promise<any[]> {
-    let query = 'SELECT * FROM cases WHERE 1=1';
+    if (!this.db) throw new Error('Database not initialized');
+
+    let query = 'SELECT * FROM cases WHERE is_deleted = 0';
     const params: any[] = [];
 
     if (filters) {
@@ -170,16 +297,51 @@ export class DatabaseService {
 
     query += ' ORDER BY date_opened DESC';
 
-    const stmt = this.db.prepare(query);
-    return stmt.all(...params);
+    const result = this.db.exec(query, params);
+    if (result.length === 0) return [];
+
+    // Convert to array of objects
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
   }
 
   async getCaseById(id: number): Promise<any | null> {
-    const stmt = this.db.prepare('SELECT * FROM cases WHERE id = ?');
-    return stmt.get(id) || null;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec('SELECT * FROM cases WHERE id = ? AND is_deleted = 0', [id]);
+    if (result.length === 0 || result[0].values.length === 0) return null;
+
+    const columns = result[0].columns;
+    const values = result[0].values[0];
+    const obj: any = {};
+    columns.forEach((col: string, i: number) => {
+      obj[col] = values[i];
+    });
+    return obj;
+  }
+
+  async deleteCase(id: number): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    // Soft delete: set is_deleted = 1, phase = 'Closed', date_closed = today
+    const today = new Date().toISOString().split('T')[0];
+    const query = `UPDATE cases SET is_deleted = 1, phase = 'Closed', date_closed = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+    
+    this.db.run(query, [today, id]);
+    this.save();
+    return true;
   }
 
   async updateCase(id: number, updates: Partial<CaseInput>): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
     const fields: string[] = [];
     const values: any[] = [];
 
@@ -204,43 +366,58 @@ export class DatabaseService {
     const query = `UPDATE cases SET ${fields.join(', ')} WHERE id = ?`;
     values.push(id);
 
-    const stmt = this.db.prepare(query);
-    const result = stmt.run(...values);
-
-    return result.changes > 0;
+    this.db.run(query, values);
+    this.save();
+    return true;
   }
 
   async searchCases(query: string): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
     // Search in cases table (case_name, cm_number) AND case_parties table (party_name)
     const searchTerm = `%${query}%`;
 
-    const stmt = this.db.prepare(`
+    const sql = `
       SELECT DISTINCT c.*
       FROM cases c
       LEFT JOIN case_parties cp ON c.id = cp.case_id
-      WHERE c.case_name LIKE ?
+      WHERE c.is_deleted = 0
+         AND (c.case_name LIKE ?
          OR c.cm_number LIKE ?
-         OR cp.party_name LIKE ?
+         OR cp.party_name LIKE ?)
       ORDER BY c.date_opened DESC
-    `);
+    `;
 
-    return stmt.all(searchTerm, searchTerm, searchTerm);
+    const result = this.db.exec(sql, [searchTerm, searchTerm, searchTerm]);
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
   }
 
   // ============================================================================
   // PARTIES METHODS
   // ============================================================================
 
-  async addParty(caseId: number, partyData: PartyInput): Promise<number> {
-    const stmt = this.db.prepare(`
+  async addCaseParty(caseId: number, partyData: PartyInput): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const query = `
       INSERT INTO case_parties (
         case_id, party_type, party_name, is_corporate, is_primary,
         is_insured, is_presuit, monitor_for_service,
         service_date, answer_filed_date, notes
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    `;
 
-    const result = stmt.run(
+    this.db.run(query, [
       caseId,
       partyData.party_type,
       partyData.party_name,
@@ -252,17 +429,38 @@ export class DatabaseService {
       partyData.service_date || null,
       partyData.answer_filed_date || null,
       partyData.notes || null
-    );
+    ]);
 
-    return result.lastInsertRowid as number;
+    const result = this.db.exec('SELECT last_insert_rowid() as id');
+    const id = result[0].values[0][0] as number;
+
+    this.save();
+    return id;
   }
 
-  async getPartiesByCase(caseId: number): Promise<any[]> {
-    const stmt = this.db.prepare('SELECT * FROM case_parties WHERE case_id = ? ORDER BY is_primary DESC, party_type, party_name');
-    return stmt.all(caseId);
+  async getCaseParties(caseId: number): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec(
+      'SELECT * FROM case_parties WHERE case_id = ? ORDER BY is_primary DESC, party_type, party_name',
+      [caseId]
+    );
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
   }
 
   async updateParty(id: number, updates: Partial<PartyInput>): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
     const fields: string[] = [];
     const values: any[] = [];
 
@@ -282,31 +480,34 @@ export class DatabaseService {
     const query = `UPDATE case_parties SET ${fields.join(', ')} WHERE id = ?`;
     values.push(id);
 
-    const stmt = this.db.prepare(query);
-    const result = stmt.run(...values);
-
-    return result.changes > 0;
+    this.db.run(query, values);
+    this.save();
+    return true;
   }
 
   async deleteParty(id: number): Promise<boolean> {
-    const stmt = this.db.prepare('DELETE FROM case_parties WHERE id = ?');
-    const result = stmt.run(id);
-    return result.changes > 0;
+    if (!this.db) throw new Error('Database not initialized');
+
+    this.db.run('DELETE FROM case_parties WHERE id = ?', [id]);
+    this.save();
+    return true;
   }
 
   // ============================================================================
   // POLICIES METHODS
   // ============================================================================
 
-  async addPolicy(caseId: number, policyData: PolicyInput): Promise<number> {
-    const stmt = this.db.prepare(`
+  async addCasePolicy(caseId: number, policyData: PolicyInput): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const query = `
       INSERT INTO case_policies (
         case_id, policy_type, carrier_name, policy_number,
         policy_limits, we_are_retained_by_carrier, umuim_type, notes
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    `;
 
-    const result = stmt.run(
+    this.db.run(query, [
       caseId,
       policyData.policy_type,
       policyData.carrier_name,
@@ -315,17 +516,38 @@ export class DatabaseService {
       policyData.we_are_retained_by_carrier ? 1 : 0,
       policyData.umuim_type || null,
       policyData.notes || null
-    );
+    ]);
 
-    return result.lastInsertRowid as number;
+    const result = this.db.exec('SELECT last_insert_rowid() as id');
+    const id = result[0].values[0][0] as number;
+
+    this.save();
+    return id;
   }
 
-  async getPoliciesByCase(caseId: number): Promise<any[]> {
-    const stmt = this.db.prepare('SELECT * FROM case_policies WHERE case_id = ? ORDER BY policy_type');
-    return stmt.all(caseId);
+  async getCasePolicies(caseId: number): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec(
+      'SELECT * FROM case_policies WHERE case_id = ? ORDER BY policy_type',
+      [caseId]
+    );
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
   }
 
   async updatePolicy(id: number, updates: Partial<PolicyInput>): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
     const fields: string[] = [];
     const values: any[] = [];
 
@@ -345,16 +567,17 @@ export class DatabaseService {
     const query = `UPDATE case_policies SET ${fields.join(', ')} WHERE id = ?`;
     values.push(id);
 
-    const stmt = this.db.prepare(query);
-    const result = stmt.run(...values);
-
-    return result.changes > 0;
+    this.db.run(query, values);
+    this.save();
+    return true;
   }
 
   async deletePolicy(id: number): Promise<boolean> {
-    const stmt = this.db.prepare('DELETE FROM case_policies WHERE id = ?');
-    const result = stmt.run(id);
-    return result.changes > 0;
+    if (!this.db) throw new Error('Database not initialized');
+
+    this.db.run('DELETE FROM case_policies WHERE id = ?', [id]);
+    this.save();
+    return true;
   }
 
   // ============================================================================
@@ -365,7 +588,7 @@ export class DatabaseService {
     const caseData = await this.getCaseById(caseId);
     if (!caseData) return '';
 
-    const parties = await this.getPartiesByCase(caseId);
+    const parties = await this.getCaseParties(caseId);
     const defendants = parties.filter((p: any) => p.party_type === 'defendant');
 
     // Get primary plaintiff's last name
@@ -381,6 +604,10 @@ export class DatabaseService {
   }
 
   close(): void {
-    this.db.close();
+    if (this.db) {
+      this.save();
+      this.db.close();
+      this.db = null;
+    }
   }
 }

@@ -1,39 +1,78 @@
-import { useState } from 'react'
+// APP.TSX - MODULE A PHASE 1A
+// Dy's Sunflower Suite v4.0
+// Main application with routing
 
-function App() {
-  const [count, setCount] = useState(0)
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { CaseList } from './components/moduleA/CaseList';
+import { CaseDetail } from './components/moduleA/CaseDetail';
+import { CaseForm } from './components/moduleA/CaseForm';
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-sunflower-100 to-pastel-green flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-6xl font-bold text-sunflower-700 mb-4">
-          🌻 Dy's Sunflower Suite
-        </h1>
-        <p className="text-2xl text-sunflower-600 mb-8">
-          Civil Defense Litigation Case Management
-        </p>
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md mx-auto">
-          <h2 className="text-3xl font-semibold text-sunflower-800 mb-4">
-            Welcome!
-          </h2>
-          <p className="text-gray-700 mb-6">
-            Your suite is successfully initialized and ready to build.
-          </p>
-          <button
-            onClick={() => setCount((count) => count + 1)}
-            className="bg-sunflower-500 hover:bg-sunflower-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
-          >
-            Test Button: {count}
-          </button>
-          <div className="mt-6 text-sm text-gray-600">
-            <p>✅ React 18 + TypeScript 5</p>
-            <p>✅ Vite 5 + Tailwind CSS</p>
-            <p>✅ Sunflower Theme Active</p>
+// Simple error boundary for debugging
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('React Error Boundary caught:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-8">
+          <div className="bg-white shadow-lg rounded-lg p-6 max-w-2xl">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Application Error</h1>
+            <p className="text-gray-700 mb-2">An error occurred while rendering the application:</p>
+            <pre className="bg-gray-100 p-4 rounded text-sm overflow-auto mb-4">
+              {this.state.error?.toString()}
+            </pre>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Reload Application
+            </button>
           </div>
         </div>
-      </div>
-    </div>
-  )
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
-export default App
+function App() {
+  return (
+    <ErrorBoundary>
+      <Router>
+        <div className="min-h-screen bg-gray-100">
+          <Routes>
+            {/* Default route - redirect to cases */}
+            <Route path="/" element={<Navigate to="/cases" replace />} />
+
+            {/* Case routes */}
+            <Route path="/cases" element={<CaseList />} />
+            <Route path="/cases/new" element={<CaseForm />} />
+            <Route path="/cases/:caseId" element={<CaseDetail />} />
+            <Route path="/cases/:caseId/edit" element={<CaseForm />} />
+
+            {/* Catch all - redirect to cases */}
+            <Route path="*" element={<Navigate to="/cases" replace />} />
+          </Routes>
+        </div>
+      </Router>
+    </ErrorBoundary>
+  );
+}
+
+export default App;

@@ -29,3 +29,9 @@ data/backups/
 # Logs
 *.log
 npm-debug.log*
+
+# Windows reserved names (cannot be indexed by Git)
+nul
+CON
+PRN
+AUX
