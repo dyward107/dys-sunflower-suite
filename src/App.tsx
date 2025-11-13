@@ -55,7 +55,7 @@ function App() {
   return (
     <ErrorBoundary>
       <Router>
-        <div className="min-h-screen bg-gray-100">
+        <div className="min-h-screen">
           <Routes>
             {/* Default route - redirect to cases */}
             <Route path="/" element={<Navigate to="/cases" replace />} />

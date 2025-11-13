@@ -6,8 +6,22 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        brand: ['Sirivennela', 'serif'],
+        base: ['Quicksand', 'sans-serif'],
+      },
       colors: {
         sunflower: {
+          // Primary Palette (from spec)
+          cream: '#FFF9C4',        // Primary page background, light highlights
+          beige: '#FFECB3',        // Cards, containers, panels
+          green: '#AED581',        // Success messages, positive accents
+          taupe: '#D7CCC8',        // Borders, dividers, neutral containers
+          'taupe-light': '#E8E0DC', // Subtle borders
+          brown: '#633112',        // Headings, emphasis text, "ink" color
+          gold: '#E3A008',         // Primary buttons, accents, highlights
+          'gold-dark': '#C98506',  // Hover for buttons
+          // Legacy scale (keep for compatibility)
           50: '#FFFBEB',
           100: '#FEF3C7',
           200: '#FDE68A',
