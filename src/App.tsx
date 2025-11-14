@@ -77,24 +77,12 @@ function App() {
             {/* Case-specific routes (Tier 2 navigation) */}
             <Route path="/cases/:caseId/parties" element={
               <CasePage title="Parties" icon="👥">
-                <div className="text-center py-8">
-                  <h2 className="text-xl font-semibold text-sunflower-brown mb-4">Parties Management</h2>
-                  <p className="text-sunflower-brown/70">
-                    Manage plaintiffs, defendants, and their relationships for this case.
-                  </p>
-                  <p className="text-sm text-sunflower-brown/50 mt-4">Coming soon...</p>
-                </div>
+                <PartiesTab />
               </CasePage>
             } />
             <Route path="/cases/:caseId/policies" element={
               <CasePage title="Policies" icon="📄">
-                <div className="text-center py-8">
-                  <h2 className="text-xl font-semibold text-sunflower-brown mb-4">Insurance Policies</h2>
-                  <p className="text-sunflower-brown/70">
-                    View and manage insurance policies related to this case.
-                  </p>
-                  <p className="text-sm text-sunflower-brown/50 mt-4">Coming soon...</p>
-                </div>
+                <PoliciesTab />
               </CasePage>
             } />
             <Route path="/cases/:caseId/contacts" element={<CaseContactManager />} />

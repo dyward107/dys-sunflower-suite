@@ -1,11 +1,16 @@
 // ELECTRON API TYPE DEFINITIONS
-// Dy's Sunflower Suite v5.0 - Phases 1A, 1B & 1C
+// Dy's Sunflower Suite v5.0 - Phases 1A, 1B, 1C & Module B
 
 import { 
   Case, CaseInput, CaseFilters, Party, PartyInput, Policy, PolicyInput,
   Contact, ContactInput, ContactFilters, CaseContact, CaseContactInput,
   Disposition, DispositionInput
 } from './ModuleA';
+
+import {
+  Task, TaskInput, TaskFilters, TimeEntry, TimeEntryInput,
+  TaskGroup, TaskGroupInput, CalendarEvent, CalendarEventInput
+} from './ModuleB';
 
 export interface ElectronAPI {
   db: {
@@ -76,6 +81,32 @@ export interface ElectronAPI {
     // Utility
     deleteCase: (id: number) => Promise<boolean>;
     generateCaseDisplayName: (caseId: number) => Promise<string>;
+
+    // ============================================================================
+    // MODULE B: TASK & WORKFLOW MANAGER
+    // ============================================================================
+
+    // Tasks
+    getTasks: (caseId?: number, filters?: TaskFilters) => Promise<Task[]>;
+    getTaskById: (id: string) => Promise<Task | null>;
+    createTask: (taskData: TaskInput) => Promise<string>;
+    updateTask: (id: string, updates: Partial<TaskInput>) => Promise<boolean>;
+    completeTask: (id: string) => Promise<boolean>;
+    deleteTask: (id: string) => Promise<boolean>;
+
+    // Time Entries
+    createTimeEntry: (entryData: TimeEntryInput) => Promise<string>;
+    getTimeEntries: (taskId: string) => Promise<TimeEntry[]>;
+    updateTimeEntry: (id: string, updates: Partial<TimeEntryInput>) => Promise<boolean>;
+    deleteTimeEntry: (id: string) => Promise<boolean>;
+
+    // Task Groups
+    getTaskGroups: (caseId: number) => Promise<TaskGroup[]>;
+    createTaskGroup: (groupData: TaskGroupInput) => Promise<string>;
+
+    // Calendar Events
+    createCalendarEvent: (eventData: CalendarEventInput) => Promise<string>;
+    getCalendarEvents: (taskId?: string, caseId?: number) => Promise<CalendarEvent[]>;
   };
 }
 

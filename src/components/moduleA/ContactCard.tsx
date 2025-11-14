@@ -14,7 +14,9 @@ interface ContactCardProps {
   onEdit?: (contact: Contact) => void;
   onDelete?: (contactId: number) => void;
   onLinkToCase?: (contact: Contact) => void;
+  onEditCaseLink?: (caseContact: CaseContact) => void;
   onRemoveFromCase?: (caseContactId: number) => void;
+  onViewDetails?: (contact: Contact, caseContact?: CaseContact) => void;
   className?: string;
 }
 
@@ -25,28 +27,39 @@ export const ContactCard: React.FC<ContactCardProps> = ({
   onEdit,
   onDelete,
   onLinkToCase,
+  onEditCaseLink,
   onRemoveFromCase,
+  onViewDetails,
   className = ''
 }) => {
   // Helper to get contact type badge styling
   const getContactTypeBadge = (type: ContactType, role: ContactRole) => {
     const typeLabel = CONTACT_TYPE_LABELS[type] || type;
-    const roleLabel = CONTACT_ROLE_LABELS[type]?.[role] || role;
+    const roleLabel = CONTACT_ROLE_LABELS[role] || role;
     
-    const badgeColors = {
+    const badgeColors: Record<ContactType | 'default', string> = {
       adjuster: 'bg-blue-100 text-blue-800',
+      tpa_agent: 'bg-slate-100 text-slate-800',
+      corporate_rep: 'bg-teal-100 text-teal-800',
+      insurance_broker: 'bg-amber-100 text-amber-800',
       plaintiff_counsel: 'bg-green-100 text-green-800', 
       defense_counsel: 'bg-purple-100 text-purple-800',
       expert: 'bg-orange-100 text-orange-800',
+      investigator: 'bg-slate-100 text-slate-800',
       medical_provider: 'bg-red-100 text-red-800',
       witness: 'bg-yellow-100 text-yellow-800',
       court_personnel: 'bg-gray-100 text-gray-800',
-      other: 'bg-sunflower-taupe-light text-sunflower-brown'
+      mediator_arbitrator: 'bg-pink-100 text-pink-800',
+      vendor: 'bg-sunflower-taupe-light text-sunflower-brown',
+      other: 'bg-sunflower-taupe-light text-sunflower-brown',
+      default: 'bg-sunflower-taupe-light text-sunflower-brown'
     };
+
+    const colorClass = badgeColors[type] || badgeColors.default;
 
     return (
       <div className="flex flex-wrap gap-1">
-        <span className={`px-2 py-1 text-xs rounded-full font-medium ${badgeColors[type]}`}>
+        <span className={`px-2 py-1 text-xs rounded-full font-medium ${colorClass}`}>
           {typeLabel}
         </span>
         <span className="px-2 py-1 text-xs rounded-full font-medium bg-sunflower-gold/20 text-sunflower-brown">
@@ -70,13 +83,27 @@ export const ContactCard: React.FC<ContactCardProps> = ({
     return phone;
   };
 
+  const handleCardClick = () => {
+    if (onViewDetails) {
+      onViewDetails(contact, caseContact);
+    }
+  };
+
   return (
-    <div className={`${sunflowerTheme.containers.card} p-4 hover:shadow-lg transition-shadow duration-200 ${className}`}>
+    <div 
+      className={`${sunflowerTheme.containers.card} p-4 hover:shadow-lg transition-shadow duration-200 ${onViewDetails ? 'cursor-pointer' : ''} ${className}`}
+      onClick={handleCardClick}
+    >
       {/* Header with name and actions */}
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1">
           <h3 className={`${sunflowerTheme.typography.styles.body} font-semibold text-sunflower-brown`}>
             {contact.name}
+            {contact.is_favorite && (
+              <span className="ml-2 text-sunflower-gold" title="Favorite contact">
+                ★
+              </span>
+            )}
             {contact.do_not_contact && (
               <span className="ml-2 px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full font-medium">
                 Do Not Contact
@@ -94,7 +121,10 @@ export const ContactCard: React.FC<ContactCardProps> = ({
           <div className="flex gap-2 ml-4">
             {onEdit && (
               <button
-                onClick={() => onEdit(contact)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(contact);
+                }}
                 className="p-1 text-sunflower-gold hover:text-sunflower-gold-dark transition-colors"
                 title="Edit Contact"
               >
@@ -103,16 +133,34 @@ export const ContactCard: React.FC<ContactCardProps> = ({
             )}
             {onLinkToCase && (
               <button
-                onClick={() => onLinkToCase(contact)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLinkToCase(contact);
+                }}
                 className="p-1 text-sunflower-green hover:text-sunflower-green/80 transition-colors"
                 title="Link to Case"
               >
                 🔗
               </button>
             )}
+            {onEditCaseLink && caseContact && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditCaseLink(caseContact);
+                }}
+                className="p-1 text-sunflower-brown hover:text-sunflower-brown/80 transition-colors"
+                title="Edit Case Link"
+              >
+                ⚙️
+              </button>
+            )}
             {onRemoveFromCase && caseContact && (
               <button
-                onClick={() => onRemoveFromCase(caseContact.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveFromCase(caseContact.id);
+                }}
                 className="p-1 text-red-500 hover:text-red-600 transition-colors"
                 title="Remove from Case"
               >
@@ -121,7 +169,10 @@ export const ContactCard: React.FC<ContactCardProps> = ({
             )}
             {onDelete && (
               <button
-                onClick={() => onDelete(contact.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(contact.id);
+                }}
                 className="p-1 text-red-500 hover:text-red-600 transition-colors"
                 title="Delete Contact"
               >

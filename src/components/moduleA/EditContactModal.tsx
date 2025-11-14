@@ -7,6 +7,7 @@ import { sunflowerTheme } from '../../styles/sunflowerTheme';
 import { useCaseStore } from '../../stores/caseStore';
 import type { Contact, ContactInput, PreferredContact } from '../../types/ModuleA';
 import { PREFERRED_CONTACT_METHODS, PREFERRED_CONTACT_LABELS } from '../../types/ModuleA';
+import { ContactTypeRoleSelector } from './ContactTypeRoleSelector';
 
 interface EditContactModalProps {
   isOpen: boolean;
@@ -36,7 +37,10 @@ export const EditContactModal: React.FC<EditContactModalProps> = ({
     preferred_contact: undefined,
     best_times: '',
     do_not_contact: false,
-    notes: ''
+    is_favorite: false,
+    notes: '',
+    contact_type: undefined,
+    role: undefined
   });
 
   const [errors, setErrors] = useState<Partial<ContactInput>>({});
@@ -56,7 +60,10 @@ export const EditContactModal: React.FC<EditContactModalProps> = ({
         preferred_contact: contact.preferred_contact || undefined,
         best_times: contact.best_times || '',
         do_not_contact: contact.do_not_contact || false,
-        notes: contact.notes || ''
+        is_favorite: contact.is_favorite || false,
+        notes: contact.notes || '',
+        contact_type: contact.contact_type || undefined,
+        role: contact.role || undefined
       });
       setErrors({});
     }
@@ -205,6 +212,15 @@ export const EditContactModal: React.FC<EditContactModalProps> = ({
                 disabled={isLoading}
               />
             </div>
+
+            {/* Contact Type & Role */}
+            <ContactTypeRoleSelector
+              contactType={formData.contact_type || ''}
+              role={formData.role || ''}
+              onTypeChange={(type) => handleInputChange('contact_type', type)}
+              onRoleChange={(role) => handleInputChange('role', role)}
+              disabled={isLoading}
+            />
           </div>
 
           {/* Contact Methods */}
@@ -330,19 +346,34 @@ export const EditContactModal: React.FC<EditContactModalProps> = ({
               />
             </div>
 
-            {/* Do Not Contact */}
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="do_not_contact"
-                checked={formData.do_not_contact}
-                onChange={(e) => handleInputChange('do_not_contact', e.target.checked)}
-                className="rounded border-sunflower-taupe text-sunflower-gold focus:ring-sunflower-gold"
-                disabled={isLoading}
-              />
-              <label htmlFor="do_not_contact" className={sunflowerTheme.typography.styles.label}>
-                Do Not Contact (Mark if this contact should not be contacted)
-              </label>
+            {/* Contact Flags */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="edit_do_not_contact"
+                  checked={formData.do_not_contact}
+                  onChange={(e) => handleInputChange('do_not_contact', e.target.checked)}
+                  className="rounded border-sunflower-taupe text-sunflower-gold focus:ring-sunflower-gold"
+                  disabled={isLoading}
+                />
+                <label htmlFor="edit_do_not_contact" className={sunflowerTheme.typography.styles.label}>
+                  Do Not Contact (sensitive relationship)
+                </label>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="edit_is_favorite"
+                  checked={formData.is_favorite ?? false}
+                  onChange={(e) => handleInputChange('is_favorite', e.target.checked)}
+                  className="rounded border-sunflower-taupe text-sunflower-gold focus:ring-sunflower-gold"
+                  disabled={isLoading}
+                />
+                <label htmlFor="edit_is_favorite" className={sunflowerTheme.typography.styles.label}>
+                  Mark as Favorite (pin for quick access)
+                </label>
+              </div>
             </div>
           </div>
 

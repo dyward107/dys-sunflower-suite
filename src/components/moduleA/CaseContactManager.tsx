@@ -10,6 +10,7 @@ import { ContactCard } from './ContactCard';
 import { AddContactModal } from './AddContactModal';
 import { EditContactModal } from './EditContactModal';
 import { LinkContactToCase } from './LinkContactToCase';
+import { ContactDetailModal } from './ContactDetailModal';
 import type { Contact, CaseContact, ContactType } from '../../types/ModuleA';
 import { CONTACT_TYPES, CONTACT_TYPE_LABELS } from '../../types/ModuleA';
 
@@ -30,6 +31,7 @@ export const CaseContactManager: React.FC = () => {
     error,
     selectCase,
     loadContacts,
+    loadPartiesForCase,
     loadContactsForCase,
     removeCaseContactRelationship,
     clearError 
@@ -45,7 +47,11 @@ export const CaseContactManager: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [contactToLink, setContactToLink] = useState<Contact | null>(null);
+  const [editingCaseContact, setEditingCaseContact] = useState<CaseContact | null>(null);
+  const [contactToView, setContactToView] = useState<Contact | null>(null);
+  const [caseContactToView, setCaseContactToView] = useState<CaseContact | null>(null);
 
   // Load case and contacts on mount
   useEffect(() => {
@@ -75,8 +81,22 @@ export const CaseContactManager: React.FC = () => {
     setShowEditModal(true);
   };
 
-  const handleLinkContact = (contact: Contact) => {
+  const handleLinkContact = async (contact: Contact) => {
     setContactToLink(contact);
+    setEditingCaseContact(null);
+    // CRITICAL: Load parties BEFORE opening the modal so dropdown is populated
+    if (selectedCase) {
+      console.log('🌻 Loading parties for case', selectedCase.id, 'before opening link modal');
+      await loadPartiesForCase(selectedCase.id);
+      await loadContactsForCase(selectedCase.id);
+    }
+    setShowLinkModal(true);
+  };
+
+  const handleEditCaseLink = (caseContact: CaseContact) => {
+    if (!caseContact.contact) return;
+    setContactToLink(caseContact.contact);
+    setEditingCaseContact(caseContact);
     setShowLinkModal(true);
   };
 
@@ -87,6 +107,26 @@ export const CaseContactManager: React.FC = () => {
         await loadContactsForCase(selectedCase.id);
       }
     }
+  };
+
+  const handleDeleteContact = async (contactId: number) => {
+    if (window.confirm('Are you sure you want to permanently delete this contact? This action cannot be undone.')) {
+      try {
+        await window.electron.db.deleteContact(contactId);
+        await loadContacts(); // Refresh the contacts list
+        if (selectedCase) {
+          await loadContactsForCase(selectedCase.id); // Refresh case contacts in case this contact was linked
+        }
+      } catch (error) {
+        console.error('Failed to delete contact:', error);
+      }
+    }
+  };
+
+  const handleViewContactDetails = (contact: Contact, caseContact?: CaseContact) => {
+    setContactToView(contact);
+    setCaseContactToView(caseContact || null);
+    setShowDetailModal(true);
   };
 
   // Handle modal success callbacks
@@ -106,6 +146,7 @@ export const CaseContactManager: React.FC = () => {
       await loadContactsForCase(selectedCase.id);
     }
     setContactToLink(null);
+    setEditingCaseContact(null);
   };
 
   // Close modals
@@ -117,6 +158,12 @@ export const CaseContactManager: React.FC = () => {
   const handleCloseLinkModal = () => {
     setShowLinkModal(false);
     setContactToLink(null);
+    setEditingCaseContact(null);
+  };
+  const handleCloseDetailModal = () => {
+    setShowDetailModal(false);
+    setContactToView(null);
+    setCaseContactToView(null);
   };
 
   // Get contacts linked to this case
@@ -349,7 +396,9 @@ export const CaseContactManager: React.FC = () => {
                           contact={caseContact.contact!}
                           caseContact={caseContact}
                           onEdit={handleEditContact}
+                        onEditCaseLink={handleEditCaseLink}
                           onRemoveFromCase={handleRemoveFromCase}
+                          onViewDetails={handleViewContactDetails}
                           showActions={true}
                         />
                       ))}
@@ -390,7 +439,10 @@ export const CaseContactManager: React.FC = () => {
                       key={contact.id}
                       contact={contact}
                       onLinkToCase={handleLinkContact}
-                      showActions={false}
+                      onEdit={handleEditContact}
+                      onDelete={handleDeleteContact}
+                      onViewDetails={handleViewContactDetails}
+                      showActions={true}
                       className="cursor-pointer hover:shadow-lg transition-shadow"
                     />
                   ))}
@@ -419,8 +471,20 @@ export const CaseContactManager: React.FC = () => {
         isOpen={showLinkModal}
         contact={contactToLink}
         caseId={selectedCase?.id || null}
+        caseContact={editingCaseContact}
         onClose={handleCloseLinkModal}
         onSuccess={handleLinkSuccess}
+      />
+
+      <ContactDetailModal
+        isOpen={showDetailModal}
+        contact={contactToView}
+        caseContact={caseContactToView || undefined}
+        onClose={handleCloseDetailModal}
+        onEdit={handleEditContact}
+        onDelete={handleDeleteContact}
+        onLinkToCase={handleLinkContact}
+        onRemoveFromCase={caseContactToView ? handleRemoveFromCase : undefined}
       />
     </div>
   );

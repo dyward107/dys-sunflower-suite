@@ -134,7 +134,21 @@ export interface PolicyInput {
 // CONTACT TYPES (PHASE 1B)
 // ============================================================================
 
-export type ContactType = 'adjuster' | 'plaintiff_counsel' | 'defense_counsel' | 'expert' | 'medical_provider' | 'witness' | 'court_personnel' | 'other';
+export type ContactType =
+  | 'adjuster'
+  | 'tpa_agent'
+  | 'corporate_rep'
+  | 'insurance_broker'
+  | 'defense_counsel'
+  | 'plaintiff_counsel'
+  | 'expert'
+  | 'investigator'
+  | 'medical_provider'
+  | 'witness'
+  | 'court_personnel'
+  | 'mediator_arbitrator'
+  | 'vendor'
+  | 'other';
 
 export type ContactRole = 
   | 'primary' | 'secondary' // adjuster
@@ -161,7 +175,10 @@ export interface Contact {
   preferred_contact: PreferredContact | null;
   best_times: string | null;
   do_not_contact: boolean;
+  is_favorite: boolean;
   notes: string | null;
+  contact_type: ContactType | null;
+  role: ContactRole | null;
   created_at: string;
   updated_at: string;
 }
@@ -178,13 +195,17 @@ export interface ContactInput {
   preferred_contact?: PreferredContact;
   best_times?: string;
   do_not_contact?: boolean;
+  is_favorite?: boolean;
   notes?: string;
+  contact_type?: ContactType;
+  role?: ContactRole;
 }
 
 export interface CaseContact {
   id: number;
   case_id: number;
   contact_id: number;
+  party_id: number | null;
   contact_type: ContactType;
   role: ContactRole;
   is_primary: boolean;
@@ -201,6 +222,7 @@ export interface CaseContact {
 export interface CaseContactInput {
   case_id: number;
   contact_id: number;
+  party_id?: number | null;
   contact_type: ContactType;
   role: ContactRole;
   is_primary?: boolean;
@@ -214,6 +236,7 @@ export interface ContactFilters {
   organization?: string;
   contact_type?: ContactType;
   preferred_contact?: PreferredContact;
+  do_not_contact?: boolean;
 }
 
 // ============================================================================
@@ -270,57 +293,101 @@ export const UMUIM_TYPES = ['Add-on', 'Set-off'] as const;
 // CONTACT CONSTANTS (PHASE 1B)
 // ============================================================================
 
-export const CONTACT_TYPES = [
+export const CONTACT_TYPES: ContactType[] = [
   'adjuster',
-  'plaintiff_counsel', 
+  'tpa_agent',
+  'corporate_rep',
+  'insurance_broker',
   'defense_counsel',
+  'plaintiff_counsel', 
   'expert',
+  'investigator',
   'medical_provider',
   'witness',
   'court_personnel',
+  'mediator_arbitrator',
+  'vendor',
   'other'
 ] as const;
 
 export const CONTACT_ROLES: Record<ContactType, string[]> = {
-  adjuster: ['primary', 'secondary'],
-  plaintiff_counsel: ['primary', 'secondary'],
-  defense_counsel: ['lead', 'co_counsel', 'co_defendant_counsel'],
-  expert: ['retained', 'consulting'],
-  medical_provider: ['treating_physician', 'facility', 'records_custodian'],
-  witness: ['fact', 'expert'],
-  court_personnel: ['judge', 'clerk', 'staff_attorney'],
+  adjuster: ['primary', 'secondary', 'supervisor', 'claims_manager', 'other'],
+  tpa_agent: ['primary', 'secondary', 'supervisor', 'other'],
+  corporate_rep: ['risk_manager', 'claims_coordinator', 'general_counsel', 'safety_director', 'ceo', 'other'],
+  insurance_broker: ['lead_broker', 'assistant_broker', 'account_manager', 'other'],
+  defense_counsel: ['lead', 'co_counsel', 'co_defendant_counsel', 'local_counsel', 'coverage_counsel', 'other'],
+  plaintiff_counsel: ['primary', 'secondary', 'local_counsel', 'other'],
+  expert: ['retained', 'consulting', 'rebuttal', 'damages', 'liability', 'medical', 'other'],
+  investigator: ['primary', 'surveillance', 'background', 'other'],
+  medical_provider: ['treating_physician', 'facility', 'records_custodian', 'billing_contact', 'other'],
+  witness: ['fact', 'expert', 'other'],
+  court_personnel: ['judge', 'clerk', 'staff_attorney', 'other'],
+  mediator_arbitrator: ['mediator', 'arbitrator', 'special_master', 'other'],
+  vendor: ['records_retrieval', 'process_server', 'court_reporter', 'translator', 'other'],
   other: [] // Custom roles allowed
 };
 
 export const CONTACT_TYPE_LABELS: Record<ContactType, string> = {
   adjuster: 'Adjuster',
-  plaintiff_counsel: 'Plaintiff Counsel',
+  tpa_agent: 'TPA Agent',
+  corporate_rep: 'Corporate Representative',
+  insurance_broker: 'Insurance Broker/Agent',
   defense_counsel: 'Defense Counsel', 
+  plaintiff_counsel: 'Plaintiff Counsel',
   expert: 'Expert',
+  investigator: 'Investigator / SIU',
   medical_provider: 'Medical Provider',
   witness: 'Witness',
   court_personnel: 'Court Personnel',
+  mediator_arbitrator: 'Mediator / Arbitrator',
+  vendor: 'Vendor / Service Provider',
   other: 'Other'
 };
 
 export const CONTACT_ROLE_LABELS: Record<string, string> = {
-  // Adjuster roles
+  // Adjuster & TPA roles
   primary: 'Primary',
   secondary: 'Secondary',
+  supervisor: 'Supervisor',
+  claims_manager: 'Claims Manager',
+  
+  // Corporate / Insurance roles
+  risk_manager: 'Risk Manager',
+  claims_coordinator: 'Claims Coordinator',
+  general_counsel: 'General Counsel',
+  safety_director: 'Safety Director',
+  ceo: 'Executive / CEO',
+  lead_broker: 'Lead Broker',
+  assistant_broker: 'Assistant Broker',
+  account_manager: 'Account Manager',
   
   // Defense counsel roles  
   lead: 'Lead Counsel',
   co_counsel: 'Co-Counsel',
   co_defendant_counsel: 'Co-Defendant Counsel',
+  local_counsel: 'Local Counsel',
+  coverage_counsel: 'Coverage Counsel',
+  
+  // Plaintiff counsel roles
+  // (primary / secondary already defined above)
   
   // Expert roles
   retained: 'Retained Expert',
   consulting: 'Consulting Expert',
+  rebuttal: 'Rebuttal Expert',
+  damages: 'Damages Expert',
+  liability: 'Liability Expert',
+  medical: 'Medical Expert',
+  
+  // Investigator roles
+  surveillance: 'Surveillance Investigator',
+  background: 'Background Investigator',
   
   // Medical provider roles
   treating_physician: 'Treating Physician',
   facility: 'Medical Facility', 
   records_custodian: 'Records Custodian',
+  billing_contact: 'Billing / Records',
   
   // Witness roles
   fact: 'Fact Witness',
@@ -329,7 +396,20 @@ export const CONTACT_ROLE_LABELS: Record<string, string> = {
   // Court personnel roles
   judge: 'Judge',
   clerk: 'Clerk',
-  staff_attorney: 'Staff Attorney'
+  staff_attorney: 'Staff Attorney',
+  
+  // Mediator / Arbitrator roles
+  mediator: 'Mediator',
+  arbitrator: 'Arbitrator',
+  special_master: 'Special Master',
+  
+  // Vendor roles
+  records_retrieval: 'Records Retrieval',
+  process_server: 'Process Server',
+  court_reporter: 'Court Reporter',
+  translator: 'Translator',
+  
+  other: 'Other'
 };
 
 export const PREFERRED_CONTACT_METHODS = ['email', 'phone', 'mail', 'text'] as const;

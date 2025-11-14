@@ -95,7 +95,10 @@ CREATE TABLE IF NOT EXISTS global_contacts (
   preferred_contact TEXT CHECK(preferred_contact IN ('email', 'phone', 'mail', 'text')),
   best_times TEXT,
   do_not_contact INTEGER DEFAULT 0,
+  is_favorite INTEGER DEFAULT 0,
   notes TEXT,
+  contact_type TEXT,
+  role TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -108,18 +111,27 @@ CREATE TABLE IF NOT EXISTS case_contacts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   case_id INTEGER NOT NULL,
   contact_id INTEGER NOT NULL,
+  party_id INTEGER, -- Optional link to specific party
   contact_type TEXT NOT NULL CHECK(contact_type IN (
-    'adjuster', 'plaintiff_counsel', 'defense_counsel', 'expert', 
-    'medical_provider', 'witness', 'court_personnel', 'other'
+    'adjuster', 'tpa_agent', 'corporate_rep', 'insurance_broker',
+    'defense_counsel', 'plaintiff_counsel', 'expert', 'investigator',
+    'medical_provider', 'witness', 'court_personnel', 'mediator_arbitrator',
+    'vendor', 'other'
   )),
   role TEXT NOT NULL CHECK(
-    (contact_type = 'adjuster' AND role IN ('primary', 'secondary')) OR
-    (contact_type = 'plaintiff_counsel' AND role IN ('primary', 'secondary')) OR
-    (contact_type = 'defense_counsel' AND role IN ('lead', 'co_counsel', 'co_defendant_counsel')) OR
-    (contact_type = 'expert' AND role IN ('retained', 'consulting')) OR
-    (contact_type = 'medical_provider' AND role IN ('treating_physician', 'facility', 'records_custodian')) OR
-    (contact_type = 'witness' AND role IN ('fact', 'expert')) OR
-    (contact_type = 'court_personnel' AND role IN ('judge', 'clerk', 'staff_attorney')) OR
+    (contact_type = 'adjuster' AND role IN ('primary', 'secondary', 'supervisor', 'claims_manager', 'other')) OR
+    (contact_type = 'tpa_agent' AND role IN ('primary', 'secondary', 'supervisor', 'other')) OR
+    (contact_type = 'corporate_rep' AND role IN ('risk_manager', 'claims_coordinator', 'general_counsel', 'safety_director', 'ceo', 'other')) OR
+    (contact_type = 'insurance_broker' AND role IN ('lead_broker', 'assistant_broker', 'account_manager', 'other')) OR
+    (contact_type = 'defense_counsel' AND role IN ('lead', 'co_counsel', 'co_defendant_counsel', 'local_counsel', 'coverage_counsel', 'other')) OR
+    (contact_type = 'plaintiff_counsel' AND role IN ('primary', 'secondary', 'local_counsel', 'other')) OR
+    (contact_type = 'expert' AND role IN ('retained', 'consulting', 'rebuttal', 'damages', 'liability', 'medical', 'other')) OR
+    (contact_type = 'investigator' AND role IN ('primary', 'surveillance', 'background', 'other')) OR
+    (contact_type = 'medical_provider' AND role IN ('treating_physician', 'facility', 'records_custodian', 'billing_contact', 'other')) OR
+    (contact_type = 'witness' AND role IN ('fact', 'expert', 'other')) OR
+    (contact_type = 'court_personnel' AND role IN ('judge', 'clerk', 'staff_attorney', 'other')) OR
+    (contact_type = 'mediator_arbitrator' AND role IN ('mediator', 'arbitrator', 'special_master', 'other')) OR
+    (contact_type = 'vendor' AND role IN ('records_retrieval', 'process_server', 'court_reporter', 'translator', 'other')) OR
     (contact_type = 'other' AND role IS NOT NULL)
   ),
   is_primary INTEGER DEFAULT 0,
@@ -130,11 +142,13 @@ CREATE TABLE IF NOT EXISTS case_contacts (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
   FOREIGN KEY (contact_id) REFERENCES global_contacts(id) ON DELETE CASCADE,
+  FOREIGN KEY (party_id) REFERENCES case_parties(id) ON DELETE SET NULL,
   UNIQUE(case_id, contact_id, contact_type, role)
 );
 
 CREATE INDEX IF NOT EXISTS idx_case_contacts_case_id ON case_contacts(case_id);
 CREATE INDEX IF NOT EXISTS idx_case_contacts_contact_id ON case_contacts(contact_id);
+CREATE INDEX IF NOT EXISTS idx_case_contacts_party_id ON case_contacts(party_id);
 CREATE INDEX IF NOT EXISTS idx_case_contacts_type ON case_contacts(contact_type);
 CREATE INDEX IF NOT EXISTS idx_case_contacts_role ON case_contacts(role);
 CREATE INDEX IF NOT EXISTS idx_case_contacts_primary ON case_contacts(is_primary);
@@ -299,6 +313,115 @@ CREATE TABLE IF NOT EXISTS policy_documents (
 
 CREATE INDEX IF NOT EXISTS idx_policy_documents_policy ON policy_documents(policy_id);
 CREATE INDEX IF NOT EXISTS idx_policy_documents_document ON policy_documents(document_id);
+
+-- ============================================================================
+-- MODULE B: TASK & WORKFLOW MANAGER
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS tasks (
+  id TEXT PRIMARY KEY,
+  case_id INTEGER NOT NULL,
+  task_group_id TEXT,
+  title TEXT NOT NULL,
+  description TEXT,
+  priority INTEGER DEFAULT 2 CHECK(priority IN (1, 2, 3, 4)),
+  status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'in-progress', 'completed', 'cancelled')),
+  phase TEXT,
+  assigned_to TEXT,
+  due_date DATE,
+  completed_date DATE,
+  is_billable INTEGER DEFAULT 1,
+  estimated_hours REAL,
+  actual_hours REAL,
+  is_locked INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
+  FOREIGN KEY (task_group_id) REFERENCES task_groups(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_case_id ON tasks(case_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
+CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date);
+CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_tasks_task_group_id ON tasks(task_group_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_phase ON tasks(phase);
+
+CREATE TABLE IF NOT EXISTS task_groups (
+  id TEXT PRIMARY KEY,
+  case_id INTEGER NOT NULL,
+  cadence_type TEXT NOT NULL,
+  name TEXT NOT NULL,
+  status TEXT DEFAULT 'active' CHECK(status IN ('active', 'completed', 'archived')),
+  triggered_by TEXT,
+  triggered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP,
+  FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_groups_case_id ON task_groups(case_id);
+CREATE INDEX IF NOT EXISTS idx_task_groups_status ON task_groups(status);
+CREATE INDEX IF NOT EXISTS idx_task_groups_cadence_type ON task_groups(cadence_type);
+
+CREATE TABLE IF NOT EXISTS time_entries (
+  id TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL,
+  user_id TEXT,
+  description TEXT NOT NULL,
+  start_time TIMESTAMP NOT NULL,
+  stop_time TIMESTAMP NOT NULL,
+  duration_minutes INTEGER NOT NULL,
+  entry_date DATE NOT NULL,
+  rate REAL,
+  is_billable INTEGER DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_time_entries_task_id ON time_entries(task_id);
+CREATE INDEX IF NOT EXISTS idx_time_entries_entry_date ON time_entries(entry_date);
+CREATE INDEX IF NOT EXISTS idx_time_entries_is_billable ON time_entries(is_billable);
+
+CREATE TABLE IF NOT EXISTS calendar_events (
+  id TEXT PRIMARY KEY,
+  task_id TEXT,
+  case_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  event_date DATE NOT NULL,
+  all_day INTEGER DEFAULT 1,
+  start_time TIME,
+  end_time TIME,
+  location TEXT,
+  reminders TEXT,
+  calendar_type TEXT CHECK(calendar_type IN ('outlook', 'ics', 'both')),
+  outlook_event_id TEXT,
+  ics_file_path TEXT,
+  event_type TEXT DEFAULT 'manual' CHECK(event_type IN ('auto', 'manual')),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+  FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_calendar_events_task_id ON calendar_events(task_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_case_id ON calendar_events(case_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_event_date ON calendar_events(event_date);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_calendar_type ON calendar_events(calendar_type);
+
+CREATE TABLE IF NOT EXISTS automation_settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  automation_code TEXT NOT NULL UNIQUE,
+  is_enabled INTEGER DEFAULT 1,
+  user_id TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_automation_settings_code ON automation_settings(automation_code);
+CREATE INDEX IF NOT EXISTS idx_automation_settings_enabled ON automation_settings(is_enabled);
 `;
 
 // ============================================================================
@@ -365,17 +488,24 @@ interface PolicyInput {
 }
 
 // Phase 1B Contact Interfaces
-type ContactType = 'adjuster' | 'plaintiff_counsel' | 'defense_counsel' | 'expert' | 'medical_provider' | 'witness' | 'court_personnel' | 'other';
+type ContactType = 'adjuster' | 'tpa_agent' | 'corporate_rep' | 'insurance_broker' | 'defense_counsel' | 'plaintiff_counsel' | 'expert' | 'investigator' | 'medical_provider' | 'witness' | 'court_personnel' | 'mediator_arbitrator' | 'vendor' | 'other';
 
 type ContactRole = 
-  | 'primary' | 'secondary' // adjuster
-  | 'primary' | 'secondary' // plaintiff_counsel  
-  | 'lead' | 'co_counsel' | 'co_defendant_counsel' // defense_counsel
-  | 'retained' | 'consulting' // expert
-  | 'treating_physician' | 'facility' | 'records_custodian' // medical_provider
+  | 'primary' | 'secondary' | 'supervisor' | 'claims_manager' // adjuster
+  | 'primary' | 'secondary' | 'supervisor' // tpa_agent
+  | 'risk_manager' | 'claims_coordinator' | 'general_counsel' | 'safety_director' | 'ceo' // corporate_rep
+  | 'lead_broker' | 'assistant_broker' | 'account_manager' // insurance_broker
+  | 'lead' | 'co_counsel' | 'co_defendant_counsel' | 'local_counsel' | 'coverage_counsel' // defense_counsel
+  | 'primary' | 'secondary' | 'local_counsel' // plaintiff_counsel
+  | 'retained' | 'consulting' | 'rebuttal' | 'damages' | 'liability' | 'medical' // expert
+  | 'primary' | 'surveillance' | 'background' // investigator
+  | 'treating_physician' | 'facility' | 'records_custodian' | 'billing_contact' // medical_provider
   | 'fact' | 'expert' // witness
   | 'judge' | 'clerk' | 'staff_attorney' // court_personnel
-  | string; // other (custom role)
+  | 'mediator' | 'arbitrator' | 'special_master' // mediator_arbitrator
+  | 'records_retrieval' | 'process_server' | 'court_reporter' | 'translator' // vendor
+  | 'other' // other (custom role)
+  | string; // for custom roles
 
 type PreferredContact = 'email' | 'phone' | 'mail' | 'text';
 
@@ -392,7 +522,10 @@ interface Contact {
   preferred_contact: PreferredContact | null;
   best_times: string | null;
   do_not_contact: boolean;
+  is_favorite: boolean;
   notes: string | null;
+  contact_type: ContactType | null;
+  role: ContactRole | null;
   created_at: string;
   updated_at: string;
 }
@@ -409,13 +542,17 @@ interface ContactInput {
   preferred_contact?: PreferredContact;
   best_times?: string;
   do_not_contact?: boolean;
+  is_favorite?: boolean;
   notes?: string;
+  contact_type?: ContactType;
+  role?: ContactRole;
 }
 
 interface CaseContact {
   id: number;
   case_id: number;
   contact_id: number;
+  party_id: number | null;
   contact_type: ContactType;
   role: ContactRole;
   is_primary: boolean;
@@ -432,6 +569,7 @@ interface CaseContact {
 interface CaseContactInput {
   case_id: number;
   contact_id: number;
+  party_id?: number | null;
   contact_type: ContactType;
   role: ContactRole;
   is_primary?: boolean;
@@ -545,8 +683,17 @@ export class DatabaseService {
   private async initializeSchema(): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
-    // Execute embedded schema
-    this.db.exec(SCHEMA_SQL);
+    // Check if this is a new database (no tables exist)
+    const tablesResult = this.db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+    const isNewDatabase = tablesResult.length === 0 || tablesResult[0].values.length === 0;
+
+    if (isNewDatabase) {
+      // New database - execute full schema
+      this.db.exec(SCHEMA_SQL);
+    } else {
+      // Existing database - run migrations only
+      console.log('Existing database detected, running migrations...');
+    }
 
     // Migration: Add is_deleted column if it doesn't exist (for existing databases)
     try {
@@ -587,8 +734,201 @@ export class DatabaseService {
       }
     }
 
+    // Ensure contact tables are upgraded for extended contact types/metadata
+    this.ensureContactSchemaUpgrades();
+
+    // Migration: Populate case_parties from legacy primary party fields
+    this.migratePrimaryPartiesToCaseParties();
+
+    // Migration: Create Module B tables if they don't exist
+    this.ensureModuleBTablesExist();
+
     // Save to disk
     this.save();
+  }
+
+  private migratePrimaryPartiesToCaseParties(): void {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    try {
+      // Check if we've already migrated (check if any primary parties exist)
+      const checkResult = this.db.exec(
+        'SELECT COUNT(*) as count FROM case_parties WHERE is_primary = 1'
+      );
+      const primaryCount = checkResult.length > 0 ? checkResult[0].values[0][0] : 0;
+      
+      // Only migrate if no primary parties exist yet
+      if (primaryCount === 0) {
+        console.log('🌻 Migration: Populating case_parties from legacy primary party fields...');
+        
+        // Migrate primary plaintiffs
+        this.db.exec(`
+          INSERT INTO case_parties (case_id, party_type, party_name, is_primary, is_corporate)
+          SELECT id, 'plaintiff', primary_plaintiff_name, 1, 0
+          FROM cases
+          WHERE primary_plaintiff_name IS NOT NULL 
+            AND primary_plaintiff_name != ''
+            AND NOT EXISTS (
+              SELECT 1 FROM case_parties 
+              WHERE case_id = cases.id 
+              AND party_type = 'plaintiff' 
+              AND is_primary = 1
+            )
+        `);
+        
+        // Migrate primary defendants
+        this.db.exec(`
+          INSERT INTO case_parties (case_id, party_type, party_name, is_primary, is_corporate)
+          SELECT id, 'defendant', primary_defendant_name, 1, 0
+          FROM cases
+          WHERE primary_defendant_name IS NOT NULL 
+            AND primary_defendant_name != ''
+            AND NOT EXISTS (
+              SELECT 1 FROM case_parties 
+              WHERE case_id = cases.id 
+              AND party_type = 'defendant' 
+              AND is_primary = 1
+            )
+        `);
+        
+        const migratedResult = this.db.exec(
+          'SELECT COUNT(*) as count FROM case_parties WHERE is_primary = 1'
+        );
+        const migratedCount = migratedResult.length > 0 ? migratedResult[0].values[0][0] : 0;
+        
+        console.log(`✅ Migration complete: ${migratedCount} primary parties migrated to case_parties table`);
+      } else {
+        console.log(`✅ Primary parties already migrated (${primaryCount} found)`);
+      }
+    } catch (error: any) {
+      console.error('❌ Error migrating primary parties:', error.message);
+    }
+  }
+
+  private ensureContactSchemaUpgrades(): void {
+    if (!this.db) throw new Error('Database not initialized');
+    this.ensureGlobalContactsFavoriteColumn();
+    this.ensureCaseContactsSchema();
+  }
+
+  private ensureGlobalContactsFavoriteColumn(): void {
+    if (!this.db) throw new Error('Database not initialized');
+    const result = this.db.exec('PRAGMA table_info(global_contacts)');
+    const columns = result.length > 0 ? result[0].values.map((row: any[]) => row[1]) : [];
+    
+    // Add is_favorite column if missing
+    if (!columns.includes('is_favorite')) {
+      this.db.exec('ALTER TABLE global_contacts ADD COLUMN is_favorite INTEGER DEFAULT 0');
+    }
+    
+    // Add contact_type column if missing
+    if (!columns.includes('contact_type')) {
+      this.db.exec('ALTER TABLE global_contacts ADD COLUMN contact_type TEXT');
+    }
+    
+    // Add role column if missing
+    if (!columns.includes('role')) {
+      this.db.exec('ALTER TABLE global_contacts ADD COLUMN role TEXT');
+    }
+  }
+
+  private ensureCaseContactsSchema(): void {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    // Check if party_id column exists
+    const tableInfo = this.db.exec('PRAGMA table_info(case_contacts)');
+    const hasPartyId = tableInfo.length > 0 && 
+      tableInfo[0].values.some((row: any[]) => row[1] === 'party_id');
+    
+    // Check if new contact types exist
+    const result = this.db.exec("SELECT sql FROM sqlite_master WHERE type='table' AND name='case_contacts'");
+    const currentDefinition =
+      result.length > 0 && result[0].values.length > 0
+        ? (result[0].values[0][0] as string)
+        : '';
+
+    const hasNewContactTypes = currentDefinition && currentDefinition.includes('tpa_agent');
+
+    if (hasPartyId && hasNewContactTypes) {
+      return; // Schema already up to date
+    }
+
+    this.recreateCaseContactsTable();
+  }
+
+  private recreateCaseContactsTable(): void {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      this.db.exec('BEGIN TRANSACTION');
+      this.db.exec('ALTER TABLE case_contacts RENAME TO case_contacts_old');
+
+      this.db.exec(`
+        CREATE TABLE case_contacts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          case_id INTEGER NOT NULL,
+          contact_id INTEGER NOT NULL,
+          party_id INTEGER, -- Optional link to specific party
+          contact_type TEXT NOT NULL CHECK(contact_type IN (
+            'adjuster', 'tpa_agent', 'corporate_rep', 'insurance_broker',
+            'defense_counsel', 'plaintiff_counsel', 'expert', 'investigator',
+            'medical_provider', 'witness', 'court_personnel', 'mediator_arbitrator',
+            'vendor', 'other'
+          )),
+          role TEXT NOT NULL CHECK(
+            (contact_type = 'adjuster' AND role IN ('primary', 'secondary', 'supervisor', 'claims_manager', 'other')) OR
+            (contact_type = 'tpa_agent' AND role IN ('primary', 'secondary', 'supervisor', 'other')) OR
+            (contact_type = 'corporate_rep' AND role IN ('risk_manager', 'claims_coordinator', 'general_counsel', 'safety_director', 'ceo', 'other')) OR
+            (contact_type = 'insurance_broker' AND role IN ('lead_broker', 'assistant_broker', 'account_manager', 'other')) OR
+            (contact_type = 'defense_counsel' AND role IN ('lead', 'co_counsel', 'co_defendant_counsel', 'local_counsel', 'coverage_counsel', 'other')) OR
+            (contact_type = 'plaintiff_counsel' AND role IN ('primary', 'secondary', 'local_counsel', 'other')) OR
+            (contact_type = 'expert' AND role IN ('retained', 'consulting', 'rebuttal', 'damages', 'liability', 'medical', 'other')) OR
+            (contact_type = 'investigator' AND role IN ('primary', 'surveillance', 'background', 'other')) OR
+            (contact_type = 'medical_provider' AND role IN ('treating_physician', 'facility', 'records_custodian', 'billing_contact', 'other')) OR
+            (contact_type = 'witness' AND role IN ('fact', 'expert', 'other')) OR
+            (contact_type = 'court_personnel' AND role IN ('judge', 'clerk', 'staff_attorney', 'other')) OR
+            (contact_type = 'mediator_arbitrator' AND role IN ('mediator', 'arbitrator', 'special_master', 'other')) OR
+            (contact_type = 'vendor' AND role IN ('records_retrieval', 'process_server', 'court_reporter', 'translator', 'other')) OR
+            (contact_type = 'other' AND role IS NOT NULL)
+          ),
+          is_primary INTEGER DEFAULT 0,
+          relationship_start_date DATE,
+          relationship_end_date DATE,
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
+          FOREIGN KEY (contact_id) REFERENCES global_contacts(id) ON DELETE CASCADE,
+          FOREIGN KEY (party_id) REFERENCES case_parties(id) ON DELETE SET NULL,
+          UNIQUE(case_id, contact_id, contact_type, role)
+        );
+      `);
+
+      this.db.exec(`
+        INSERT INTO case_contacts (
+          id, case_id, contact_id, party_id, contact_type, role, is_primary,
+          relationship_start_date, relationship_end_date, notes, created_at, updated_at
+        )
+        SELECT
+          id, case_id, contact_id, NULL as party_id, contact_type, role, is_primary,
+          relationship_start_date, relationship_end_date, notes, created_at, updated_at
+        FROM case_contacts_old;
+      `);
+
+      this.db.exec('DROP TABLE case_contacts_old');
+
+      this.db.exec('CREATE INDEX IF NOT EXISTS idx_case_contacts_case_id ON case_contacts(case_id)');
+      this.db.exec('CREATE INDEX IF NOT EXISTS idx_case_contacts_contact_id ON case_contacts(contact_id)');
+      this.db.exec('CREATE INDEX IF NOT EXISTS idx_case_contacts_party_id ON case_contacts(party_id)');
+      this.db.exec('CREATE INDEX IF NOT EXISTS idx_case_contacts_type ON case_contacts(contact_type)');
+      this.db.exec('CREATE INDEX IF NOT EXISTS idx_case_contacts_role ON case_contacts(role)');
+      this.db.exec('CREATE INDEX IF NOT EXISTS idx_case_contacts_primary ON case_contacts(is_primary)');
+
+      this.db.exec('COMMIT');
+    } catch (error: any) {
+      this.db.exec('ROLLBACK');
+      console.error('Migration error for case_contacts schema:', error.message || error);
+    }
   }
 
   private save(): void {
@@ -1068,8 +1408,8 @@ export class DatabaseService {
       INSERT INTO global_contacts (
         name, organization, title, phone_primary, phone_secondary,
         email_primary, email_secondary, address, preferred_contact,
-        best_times, do_not_contact, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        best_times, do_not_contact, is_favorite, notes, contact_type, role
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     this.db.run(query, [
@@ -1084,7 +1424,10 @@ export class DatabaseService {
       contactData.preferred_contact || null,
       contactData.best_times || null,
       contactData.do_not_contact ? 1 : 0,
-      contactData.notes || null
+      contactData.is_favorite ? 1 : 0,
+      contactData.notes || null,
+      contactData.contact_type || null,
+      contactData.role || null
     ]);
 
     const result = this.db.exec('SELECT last_insert_rowid() as id');
@@ -1127,7 +1470,7 @@ export class DatabaseService {
       columns.forEach((col: string, i: number) => {
         obj[col] = row[i];
         // Convert boolean fields
-        if (col === 'do_not_contact') {
+        if (col === 'do_not_contact' || col === 'is_favorite') {
           obj[col] = row[i] === 1;
         }
       });
@@ -1143,7 +1486,7 @@ export class DatabaseService {
 
     Object.entries(updates).forEach(([key, value]) => {
       fields.push(`${key} = ?`);
-      if (key === 'do_not_contact') {
+      if (key === 'do_not_contact' || key === 'is_favorite') {
         values.push(value ? 1 : 0);
       } else {
         values.push(value === undefined ? null : value);
@@ -1212,14 +1555,15 @@ export class DatabaseService {
 
     const query = `
       INSERT INTO case_contacts (
-        case_id, contact_id, contact_type, role, is_primary,
+        case_id, contact_id, party_id, contact_type, role, is_primary,
         relationship_start_date, relationship_end_date, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     this.db.run(query, [
       caseContactData.case_id,
       caseContactData.contact_id,
+      caseContactData.party_id || null,
       caseContactData.contact_type,
       caseContactData.role,
       caseContactData.is_primary ? 1 : 0,
@@ -1238,14 +1582,24 @@ export class DatabaseService {
   async getCaseContacts(caseId: number): Promise<CaseContact[]> {
     if (!this.db) throw new Error('Database not initialized');
 
+    // Check if party_id column exists to build appropriate query
+    const tableInfo = this.db.exec('PRAGMA table_info(case_contacts)');
+    const hasPartyId = tableInfo.length > 0 && 
+      tableInfo[0].values.some((row: any[]) => row[1] === 'party_id');
+
     const query = `
       SELECT 
-        cc.*,
+        cc.id, cc.case_id, cc.contact_id, 
+        ${hasPartyId ? 'cc.party_id,' : 'NULL as party_id,'}
+        cc.contact_type, cc.role, cc.is_primary,
+        cc.relationship_start_date, cc.relationship_end_date, cc.notes,
+        cc.created_at, cc.updated_at,
         gc.name, gc.organization, gc.title,
         gc.phone_primary, gc.phone_secondary,
         gc.email_primary, gc.email_secondary,
         gc.address, gc.preferred_contact, gc.best_times,
-        gc.do_not_contact, gc.notes as contact_notes
+        gc.do_not_contact, gc.is_favorite, gc.contact_type as global_contact_type, 
+        gc.role as global_role, gc.notes as contact_notes
       FROM case_contacts cc
       JOIN global_contacts gc ON cc.contact_id = gc.id
       WHERE cc.case_id = ?
@@ -1262,7 +1616,7 @@ export class DatabaseService {
       columns.forEach((col: string, i: number) => {
         obj[col] = row[i];
         // Convert boolean fields
-        if (col === 'is_primary' || col === 'do_not_contact') {
+        if (col === 'is_primary' || col === 'do_not_contact' || col === 'is_favorite') {
           obj[col] = row[i] === 1;
         }
       });
@@ -1272,6 +1626,7 @@ export class DatabaseService {
         id: obj.id,
         case_id: obj.case_id,
         contact_id: obj.contact_id,
+        party_id: obj.party_id,
         contact_type: obj.contact_type,
         role: obj.role,
         is_primary: obj.is_primary,
@@ -1293,6 +1648,9 @@ export class DatabaseService {
           preferred_contact: obj.preferred_contact,
           best_times: obj.best_times,
           do_not_contact: obj.do_not_contact,
+          is_favorite: obj.is_favorite,
+          contact_type: obj.global_contact_type,
+          role: obj.global_role,
           notes: obj.contact_notes,
           created_at: obj.created_at,
           updated_at: obj.updated_at
@@ -1881,6 +2239,548 @@ export class DatabaseService {
     });
 
     return stats;
+  }
+
+  // ============================================================================
+  // MODULE B: MIGRATION METHODS
+  // ============================================================================
+
+  private ensureModuleBTablesExist(): void {
+    if (!this.db) throw new Error('Database not initialized');
+
+    console.log('🌻 Checking Module B tables...');
+
+    // Check if tasks table exists
+    try {
+      this.db.exec('SELECT 1 FROM tasks LIMIT 1');
+      console.log('✅ Module B tables already exist');
+      return;
+    } catch (error) {
+      // Tables don't exist, create them
+      console.log('📋 Creating Module B tables...');
+    }
+
+    try {
+      // Create Module B schema
+      const moduleBSchema = `
+        -- MODULE B: TASK & WORKFLOW MANAGER
+        CREATE TABLE IF NOT EXISTS tasks (
+          id TEXT PRIMARY KEY,
+          case_id INTEGER NOT NULL,
+          task_group_id TEXT,
+          title TEXT NOT NULL,
+          description TEXT,
+          priority INTEGER DEFAULT 2 CHECK(priority IN (1, 2, 3, 4)),
+          status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'in-progress', 'completed', 'cancelled')),
+          phase TEXT,
+          assigned_to TEXT,
+          due_date DATE,
+          completed_date DATE,
+          is_billable INTEGER DEFAULT 1,
+          estimated_hours REAL,
+          actual_hours REAL,
+          is_locked INTEGER DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
+          FOREIGN KEY (task_group_id) REFERENCES task_groups(id) ON DELETE SET NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_tasks_case_id ON tasks(case_id);
+        CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+        CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
+        CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date);
+        CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to);
+        CREATE INDEX IF NOT EXISTS idx_tasks_task_group_id ON tasks(task_group_id);
+        CREATE INDEX IF NOT EXISTS idx_tasks_phase ON tasks(phase);
+
+        CREATE TABLE IF NOT EXISTS task_groups (
+          id TEXT PRIMARY KEY,
+          case_id INTEGER NOT NULL,
+          cadence_type TEXT NOT NULL,
+          name TEXT NOT NULL,
+          status TEXT DEFAULT 'active' CHECK(status IN ('active', 'completed', 'archived')),
+          triggered_by TEXT,
+          triggered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          completed_at TIMESTAMP,
+          FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_task_groups_case_id ON task_groups(case_id);
+        CREATE INDEX IF NOT EXISTS idx_task_groups_status ON task_groups(status);
+        CREATE INDEX IF NOT EXISTS idx_task_groups_cadence_type ON task_groups(cadence_type);
+
+        CREATE TABLE IF NOT EXISTS time_entries (
+          id TEXT PRIMARY KEY,
+          task_id TEXT NOT NULL,
+          user_id TEXT,
+          description TEXT NOT NULL,
+          start_time TIMESTAMP NOT NULL,
+          stop_time TIMESTAMP NOT NULL,
+          duration_minutes INTEGER NOT NULL,
+          entry_date DATE NOT NULL,
+          rate REAL,
+          is_billable INTEGER DEFAULT 1,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_time_entries_task_id ON time_entries(task_id);
+        CREATE INDEX IF NOT EXISTS idx_time_entries_entry_date ON time_entries(entry_date);
+        CREATE INDEX IF NOT EXISTS idx_time_entries_is_billable ON time_entries(is_billable);
+
+        CREATE TABLE IF NOT EXISTS calendar_events (
+          id TEXT PRIMARY KEY,
+          task_id TEXT,
+          case_id INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          description TEXT,
+          event_date DATE NOT NULL,
+          all_day INTEGER DEFAULT 1,
+          start_time TIME,
+          end_time TIME,
+          location TEXT,
+          reminders TEXT,
+          calendar_type TEXT CHECK(calendar_type IN ('outlook', 'ics', 'both')),
+          outlook_event_id TEXT,
+          ics_file_path TEXT,
+          event_type TEXT DEFAULT 'manual' CHECK(event_type IN ('auto', 'manual')),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+          FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_calendar_events_task_id ON calendar_events(task_id);
+        CREATE INDEX IF NOT EXISTS idx_calendar_events_case_id ON calendar_events(case_id);
+        CREATE INDEX IF NOT EXISTS idx_calendar_events_event_date ON calendar_events(event_date);
+        CREATE INDEX IF NOT EXISTS idx_calendar_events_calendar_type ON calendar_events(calendar_type);
+
+        CREATE TABLE IF NOT EXISTS automation_settings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          automation_code TEXT NOT NULL UNIQUE,
+          is_enabled INTEGER DEFAULT 1,
+          user_id TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_automation_settings_code ON automation_settings(automation_code);
+        CREATE INDEX IF NOT EXISTS idx_automation_settings_enabled ON automation_settings(is_enabled);
+      `;
+
+      this.db.exec(moduleBSchema);
+      console.log('✅ Module B tables created successfully');
+
+    } catch (error: any) {
+      console.error('❌ Error creating Module B tables:', error.message);
+      throw error;
+    }
+  }
+
+  // ============================================================================
+  // MODULE B: TASK & WORKFLOW MANAGER METHODS
+  // ============================================================================
+
+  // Task Methods
+  async getTasks(caseId?: number, filters?: any): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    let query = 'SELECT * FROM tasks WHERE 1=1';
+    const params: any[] = [];
+
+    if (caseId) {
+      query += ' AND case_id = ?';
+      params.push(caseId);
+    }
+
+    if (filters?.status && filters.status.length > 0) {
+      const placeholders = filters.status.map(() => '?').join(',');
+      query += ` AND status IN (${placeholders})`;
+      params.push(...filters.status);
+    }
+
+    if (filters?.priority && filters.priority.length > 0) {
+      const placeholders = filters.priority.map(() => '?').join(',');
+      query += ` AND priority IN (${placeholders})`;
+      params.push(...filters.priority);
+    }
+
+    if (filters?.phase) {
+      query += ' AND phase = ?';
+      params.push(filters.phase);
+    }
+
+    if (filters?.assigned_to) {
+      query += ' AND assigned_to = ?';
+      params.push(filters.assigned_to);
+    }
+
+    if (filters?.overdue_only) {
+      query += ` AND status != 'completed' AND due_date < DATE('now')`;
+    }
+
+    if (filters?.billable_only) {
+      query += ' AND is_billable = 1';
+    }
+
+    query += ' ORDER BY due_date ASC, priority DESC';
+
+    const result = this.db.exec(query, params);
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
+  }
+
+  async getTaskById(id: string): Promise<any | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec('SELECT * FROM tasks WHERE id = ?', [id]);
+    if (result.length === 0 || result[0].values.length === 0) return null;
+
+    const columns = result[0].columns;
+    const values = result[0].values[0];
+    const obj: any = {};
+    columns.forEach((col: string, i: number) => {
+      obj[col] = values[i];
+    });
+    return obj;
+  }
+
+  async createTask(taskData: any): Promise<string> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const id = `task-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    
+    this.db.run(`
+      INSERT INTO tasks (
+        id, case_id, task_group_id, title, description, priority, status,
+        phase, assigned_to, due_date, is_billable, estimated_hours
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      id,
+      taskData.case_id,
+      taskData.task_group_id || null,
+      taskData.title,
+      taskData.description || null,
+      taskData.priority || 2,
+      taskData.status || 'pending',
+      taskData.phase || null,
+      taskData.assigned_to || null,
+      taskData.due_date || null,
+      taskData.is_billable !== undefined ? taskData.is_billable : 1,
+      taskData.estimated_hours || null
+    ]);
+
+    this.save();
+    return id;
+  }
+
+  async updateTask(id: string, updates: any): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const fields = [];
+    const values = [];
+
+    if (updates.title !== undefined) { fields.push('title = ?'); values.push(updates.title); }
+    if (updates.description !== undefined) { fields.push('description = ?'); values.push(updates.description); }
+    if (updates.priority !== undefined) { fields.push('priority = ?'); values.push(updates.priority); }
+    if (updates.status !== undefined) { fields.push('status = ?'); values.push(updates.status); }
+    if (updates.phase !== undefined) { fields.push('phase = ?'); values.push(updates.phase); }
+    if (updates.assigned_to !== undefined) { fields.push('assigned_to = ?'); values.push(updates.assigned_to); }
+    if (updates.due_date !== undefined) { fields.push('due_date = ?'); values.push(updates.due_date); }
+    if (updates.completed_date !== undefined) { fields.push('completed_date = ?'); values.push(updates.completed_date); }
+    if (updates.is_billable !== undefined) { fields.push('is_billable = ?'); values.push(updates.is_billable); }
+    if (updates.estimated_hours !== undefined) { fields.push('estimated_hours = ?'); values.push(updates.estimated_hours); }
+    if (updates.actual_hours !== undefined) { fields.push('actual_hours = ?'); values.push(updates.actual_hours); }
+
+    fields.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(id);
+
+    this.db.run(`UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`, values);
+    this.save();
+    return true;
+  }
+
+  async completeTask(id: string): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    this.db.run(`
+      UPDATE tasks 
+      SET status = 'completed', 
+          completed_date = DATE('now'),
+          is_locked = 1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [id]);
+
+    this.save();
+    return true;
+  }
+
+  async deleteTask(id: string): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    this.db.run('DELETE FROM tasks WHERE id = ?', [id]);
+    this.save();
+    return true;
+  }
+
+  // Time Entry Methods
+  async createTimeEntry(entryData: any): Promise<string> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const id = `time-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    
+    this.db.run(`
+      INSERT INTO time_entries (
+        id, task_id, user_id, description, start_time, stop_time,
+        duration_minutes, entry_date, rate, is_billable
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      id,
+      entryData.task_id,
+      entryData.user_id || null,
+      entryData.description,
+      entryData.start_time,
+      entryData.stop_time,
+      entryData.duration_minutes,
+      entryData.entry_date,
+      entryData.rate || null,
+      entryData.is_billable !== undefined ? entryData.is_billable : 1
+    ]);
+
+    // Update actual_hours on task
+    const result = this.db.exec(`
+      SELECT SUM(duration_minutes) as total 
+      FROM time_entries 
+      WHERE task_id = ?
+    `, [entryData.task_id]);
+
+    if (result.length > 0 && result[0].values.length > 0) {
+      const totalMinutes = Number(result[0].values[0][0]) || 0;
+      const totalHours = totalMinutes / 60;
+      this.db.run(`UPDATE tasks SET actual_hours = ? WHERE id = ?`, [totalHours, entryData.task_id]);
+    }
+
+    this.save();
+    return id;
+  }
+
+  async getTimeEntries(taskId: string): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec(`
+      SELECT * FROM time_entries 
+      WHERE task_id = ? 
+      ORDER BY entry_date DESC, start_time DESC
+    `, [taskId]);
+
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
+  }
+
+  async updateTimeEntry(id: string, updates: any): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const fields = [];
+    const values = [];
+
+    if (updates.description !== undefined) { fields.push('description = ?'); values.push(updates.description); }
+    if (updates.start_time !== undefined) { fields.push('start_time = ?'); values.push(updates.start_time); }
+    if (updates.stop_time !== undefined) { fields.push('stop_time = ?'); values.push(updates.stop_time); }
+    if (updates.duration_minutes !== undefined) { fields.push('duration_minutes = ?'); values.push(updates.duration_minutes); }
+    if (updates.entry_date !== undefined) { fields.push('entry_date = ?'); values.push(updates.entry_date); }
+    if (updates.rate !== undefined) { fields.push('rate = ?'); values.push(updates.rate); }
+    if (updates.is_billable !== undefined) { fields.push('is_billable = ?'); values.push(updates.is_billable); }
+
+    fields.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(id);
+
+    this.db.run(`UPDATE time_entries SET ${fields.join(', ')} WHERE id = ?`, values);
+
+    // Recalculate actual_hours on task
+    const entry = this.db.exec('SELECT task_id FROM time_entries WHERE id = ?', [id]);
+    if (entry.length > 0 && entry[0].values.length > 0) {
+      const taskId = entry[0].values[0][0];
+      const result = this.db.exec(`
+        SELECT SUM(duration_minutes) as total 
+        FROM time_entries 
+        WHERE task_id = ?
+      `, [taskId]);
+
+      if (result.length > 0 && result[0].values.length > 0) {
+        const totalMinutes = Number(result[0].values[0][0]) || 0;
+        const totalHours = totalMinutes / 60;
+        this.db.run(`UPDATE tasks SET actual_hours = ? WHERE id = ?`, [totalHours, taskId]);
+      }
+    }
+
+    this.save();
+    return true;
+  }
+
+  async deleteTimeEntry(id: string): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    // Get task_id before deleting
+    const entry = this.db.exec('SELECT task_id FROM time_entries WHERE id = ?', [id]);
+    
+    this.db.run('DELETE FROM time_entries WHERE id = ?', [id]);
+
+    // Recalculate actual_hours on task
+    if (entry.length > 0 && entry[0].values.length > 0) {
+      const taskId = entry[0].values[0][0];
+      const result = this.db.exec(`
+        SELECT SUM(duration_minutes) as total 
+        FROM time_entries 
+        WHERE task_id = ?
+      `, [taskId]);
+
+      if (result.length > 0 && result[0].values.length > 0) {
+        const totalMinutes = Number(result[0].values[0][0]) || 0;
+        const totalHours = totalMinutes / 60;
+        this.db.run(`UPDATE tasks SET actual_hours = ? WHERE id = ?`, [totalHours, taskId]);
+      } else {
+        this.db.run(`UPDATE tasks SET actual_hours = NULL WHERE id = ?`, [taskId]);
+      }
+    }
+
+    this.save();
+    return true;
+  }
+
+  // Task Group Methods
+  async getTaskGroups(caseId: number): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec(`
+      SELECT tg.*, 
+             COUNT(t.id) as total_tasks,
+             SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) as completed_tasks
+      FROM task_groups tg
+      LEFT JOIN tasks t ON tg.id = t.task_group_id
+      WHERE tg.case_id = ?
+      GROUP BY tg.id
+      ORDER BY tg.triggered_at DESC
+    `, [caseId]);
+
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
+  }
+
+  async createTaskGroup(groupData: any): Promise<string> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const id = `group-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    
+    this.db.run(`
+      INSERT INTO task_groups (id, case_id, cadence_type, name, triggered_by)
+      VALUES (?, ?, ?, ?, ?)
+    `, [
+      id,
+      groupData.case_id,
+      groupData.cadence_type,
+      groupData.name,
+      groupData.triggered_by || null
+    ]);
+
+    this.save();
+    return id;
+  }
+
+  // Calendar Event Methods
+  async createCalendarEvent(eventData: any): Promise<string> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const id = `event-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    
+    this.db.run(`
+      INSERT INTO calendar_events (
+        id, task_id, case_id, title, description, event_date, all_day,
+        start_time, end_time, location, reminders, calendar_type, event_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      id,
+      eventData.task_id || null,
+      eventData.case_id,
+      eventData.title,
+      eventData.description || null,
+      eventData.event_date,
+      eventData.all_day !== undefined ? eventData.all_day : 1,
+      eventData.start_time || null,
+      eventData.end_time || null,
+      eventData.location || null,
+      eventData.reminders ? JSON.stringify(eventData.reminders) : null,
+      eventData.calendar_type,
+      eventData.event_type || 'manual'
+    ]);
+
+    this.save();
+    return id;
+  }
+
+  async getCalendarEvents(taskId?: string, caseId?: number): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    let query = 'SELECT * FROM calendar_events WHERE 1=1';
+    const params: any[] = [];
+
+    if (taskId) {
+      query += ' AND task_id = ?';
+      params.push(taskId);
+    }
+
+    if (caseId) {
+      query += ' AND case_id = ?';
+      params.push(caseId);
+    }
+
+    query += ' ORDER BY event_date ASC';
+
+    const result = this.db.exec(query, params);
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        if (col === 'reminders' && row[i]) {
+          obj[col] = JSON.parse(row[i] as string);
+        } else {
+          obj[col] = row[i];
+        }
+      });
+      return obj;
+    });
   }
 
   close(): void {

@@ -10,9 +10,9 @@ import { AddPartyModal } from './AddPartyModal';
 import type { Party } from '../../types/ModuleA';
 
 // Import floral assets for unique screen design
-import heroSunflower from '../../assets/florals/heroes/sunflower-field-wide.png';
-import accentStems from '../../assets/florals/accents/sunflower-stems.png';
-import subtleSpray from '../../assets/florals/subtles/sunflower-spray.png';
+import heroSunflower from '../../assets/florals/heroes/sunflowers-cluster.png';
+import accentStems from '../../assets/florals/accents/sunflower-single.png';
+import subtleSpray from '../../assets/florals/subtles/sunflowers-standing-small.png';
 
 export const PartiesTab: React.FC = () => {
   const { caseId } = useParams<{ caseId: string }>();
@@ -31,6 +31,7 @@ export const PartiesTab: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingParty, setEditingParty] = useState<Party | null>(null);
   const [expandedParty, setExpandedParty] = useState<number | null>(null);
+  const [partyModalType, setPartyModalType] = useState<'plaintiff' | 'defendant'>('defendant');
 
   // Load case on mount
   useEffect(() => {
@@ -41,13 +42,21 @@ export const PartiesTab: React.FC = () => {
   }, [caseId, selectedCase, selectCase]);
 
   // Handle party actions
-  const handleAddParty = () => {
+  const handleAddPlaintiff = () => {
     setEditingParty(null);
+    setPartyModalType('plaintiff');
+    setShowAddModal(true);
+  };
+
+  const handleAddDefendant = () => {
+    setEditingParty(null);
+    setPartyModalType('defendant');  
     setShowAddModal(true);
   };
 
   const handleEditParty = (party: Party) => {
     setEditingParty(party);
+    setPartyModalType(party.party_type);
     setShowAddModal(true);
   };
 
@@ -138,12 +147,20 @@ export const PartiesTab: React.FC = () => {
               Manage plaintiffs, defendants, and their information for {selectedCase.case_name}
             </p>
           </div>
-          <button
-            onClick={handleAddParty}
-            className={sunflowerTheme.buttons.primary}
-          >
-            ⊕ Add Party
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={handleAddPlaintiff}
+              className={sunflowerTheme.buttons.secondary}
+            >
+              ⊕ Add Plaintiff
+            </button>
+            <button
+              onClick={handleAddDefendant}
+              className={sunflowerTheme.buttons.primary}
+            >
+              ⊕ Add Defendant
+            </button>
+          </div>
         </div>
 
         {/* Parties Content */}
@@ -154,12 +171,20 @@ export const PartiesTab: React.FC = () => {
             <p className={sunflowerTheme.typography.styles.muted + ' mb-6'}>
               Add plaintiffs and defendants to get started with case management.
             </p>
-            <button
-              onClick={handleAddParty}
-              className={sunflowerTheme.buttons.primary}
-            >
-              Add First Party
-            </button>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={handleAddPlaintiff}
+                className={sunflowerTheme.buttons.secondary}
+              >
+                Add Plaintiff
+              </button>
+              <button
+                onClick={handleAddDefendant}
+                className={sunflowerTheme.buttons.primary}
+              >
+                Add Defendant
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
@@ -402,7 +427,8 @@ export const PartiesTab: React.FC = () => {
       <AddPartyModal
         isOpen={showAddModal}
         caseId={selectedCase?.id || null}
-        party={editingParty}
+        party={editingParty || undefined}
+        draftType={partyModalType}
         onClose={handleCloseModal}
         onSuccess={handleCloseModal}
       />

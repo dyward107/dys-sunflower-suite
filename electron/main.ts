@@ -573,3 +573,173 @@ ipcMain.handle('db:getDocumentStats', async (event, caseId) => {
     throw error;
   }
 });
+
+// ============================================================================
+// IPC HANDLERS - MODULE B: TASKS
+// ============================================================================
+
+ipcMain.handle('db:getTasks', async (event, caseId, filters) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const tasks = await dbService.getTasks(caseId, filters);
+    return tasks;
+  } catch (error: any) {
+    console.error('Error getting tasks:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getTaskById', async (event, id) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const task = await dbService.getTaskById(id);
+    return task;
+  } catch (error: any) {
+    console.error('Error getting task by ID:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:createTask', async (event, taskData) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const id = await dbService.createTask(taskData);
+    return id;
+  } catch (error: any) {
+    console.error('Error creating task:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:updateTask', async (event, id, updates) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.updateTask(id, updates);
+    return success;
+  } catch (error: any) {
+    console.error('Error updating task:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:completeTask', async (event, id) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.completeTask(id);
+    return success;
+  } catch (error: any) {
+    console.error('Error completing task:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:deleteTask', async (event, id) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.deleteTask(id);
+    return success;
+  } catch (error: any) {
+    console.error('Error deleting task:', error);
+    throw error;
+  }
+});
+
+// ============================================================================
+// IPC HANDLERS - MODULE B: TIME ENTRIES
+// ============================================================================
+
+ipcMain.handle('db:createTimeEntry', async (event, entryData) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const id = await dbService.createTimeEntry(entryData);
+    return id;
+  } catch (error: any) {
+    console.error('Error creating time entry:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getTimeEntries', async (event, taskId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const entries = await dbService.getTimeEntries(taskId);
+    return entries;
+  } catch (error: any) {
+    console.error('Error getting time entries:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:updateTimeEntry', async (event, id, updates) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.updateTimeEntry(id, updates);
+    return success;
+  } catch (error: any) {
+    console.error('Error updating time entry:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:deleteTimeEntry', async (event, id) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.deleteTimeEntry(id);
+    return success;
+  } catch (error: any) {
+    console.error('Error deleting time entry:', error);
+    throw error;
+  }
+});
+
+// ============================================================================
+// IPC HANDLERS - MODULE B: TASK GROUPS
+// ============================================================================
+
+ipcMain.handle('db:getTaskGroups', async (event, caseId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const groups = await dbService.getTaskGroups(caseId);
+    return groups;
+  } catch (error: any) {
+    console.error('Error getting task groups:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:createTaskGroup', async (event, groupData) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const id = await dbService.createTaskGroup(groupData);
+    return id;
+  } catch (error: any) {
+    console.error('Error creating task group:', error);
+    throw error;
+  }
+});
+
+// ============================================================================
+// IPC HANDLERS - MODULE B: CALENDAR EVENTS
+// ============================================================================
+
+ipcMain.handle('db:createCalendarEvent', async (event, eventData) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const id = await dbService.createCalendarEvent(eventData);
+    return id;
+  } catch (error: any) {
+    console.error('Error creating calendar event:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getCalendarEvents', async (event, taskId, caseId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const events = await dbService.getCalendarEvents(taskId, caseId);
+    return events;
+  } catch (error: any) {
+    console.error('Error getting calendar events:', error);
+    throw error;
+  }
+});

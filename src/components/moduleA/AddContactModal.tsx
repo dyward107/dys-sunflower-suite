@@ -7,6 +7,7 @@ import { sunflowerTheme } from '../../styles/sunflowerTheme';
 import { useCaseStore } from '../../stores/caseStore';
 import type { ContactInput, PreferredContact } from '../../types/ModuleA';
 import { PREFERRED_CONTACT_METHODS, PREFERRED_CONTACT_LABELS } from '../../types/ModuleA';
+import { ContactTypeRoleSelector } from './ContactTypeRoleSelector';
 
 interface AddContactModalProps {
   isOpen: boolean;
@@ -34,7 +35,10 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
     preferred_contact: undefined,
     best_times: '',
     do_not_contact: false,
-    notes: ''
+    is_favorite: false,
+    notes: '',
+    contact_type: undefined,
+    role: undefined
   });
 
   const [errors, setErrors] = useState<Partial<ContactInput>>({});
@@ -54,7 +58,10 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
         preferred_contact: undefined,
         best_times: '',
         do_not_contact: false,
-        notes: ''
+        is_favorite: false,
+        notes: '',
+        contact_type: undefined,
+        role: undefined
       });
       setErrors({});
     }
@@ -203,6 +210,15 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
                 disabled={isLoading}
               />
             </div>
+
+            {/* Contact Type & Role */}
+            <ContactTypeRoleSelector
+              contactType={formData.contact_type || ''}
+              role={formData.role || ''}
+              onTypeChange={(type) => handleInputChange('contact_type', type)}
+              onRoleChange={(role) => handleInputChange('role', role)}
+              disabled={isLoading}
+            />
           </div>
 
           {/* Contact Methods */}
@@ -328,7 +344,8 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
               />
             </div>
 
-            {/* Do Not Contact */}
+          {/* Contact Flags */}
+          <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
               <input
                 type="checkbox"
@@ -339,9 +356,23 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
                 disabled={isLoading}
               />
               <label htmlFor="do_not_contact" className={sunflowerTheme.typography.styles.label}>
-                Do Not Contact (Mark if this contact should not be contacted)
+                Do Not Contact (sensitive relationship)
               </label>
             </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="is_favorite"
+                checked={formData.is_favorite ?? false}
+                onChange={(e) => handleInputChange('is_favorite', e.target.checked)}
+                className="rounded border-sunflower-taupe text-sunflower-gold focus:ring-sunflower-gold"
+                disabled={isLoading}
+              />
+              <label htmlFor="is_favorite" className={sunflowerTheme.typography.styles.label}>
+                Mark as Favorite (pin for quick access)
+              </label>
+            </div>
+          </div>
           </div>
 
           {/* Notes */}

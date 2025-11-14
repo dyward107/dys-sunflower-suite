@@ -10,9 +10,9 @@ import { AddPolicyModal } from './AddPolicyModal';
 import type { Policy } from '../../types/ModuleA';
 
 // Import floral assets for unique screen design
-import heroSunflower from '../../assets/florals/heroes/sunflower-garden-wide.png';
-import accentBouquet from '../../assets/florals/accents/sunflower-bouquet.png';
-import subtleField from '../../assets/florals/subtles/sunflower-field-blur.png';
+import heroSunflower from '../../assets/florals/heroes/sunflowers-standing.png';
+import accentBouquet from '../../assets/florals/accents/sunflowers-corner-top.png';
+import subtleField from '../../assets/florals/subtles/stem-leaves.png';
 
 export const PoliciesTab: React.FC = () => {
   const { caseId } = useParams<{ caseId: string }>();

@@ -9,8 +9,9 @@ import { ContactCard } from './ContactCard';
 import { AddContactModal } from './AddContactModal';
 import { EditContactModal } from './EditContactModal';
 import { LinkContactToCase } from './LinkContactToCase';
+import { ContactDetailModal } from './ContactDetailModal';
 import { SelectCaseModal } from './SelectCaseModal';
-import type { Contact, ContactFilters, ContactType, PreferredContact } from '../../types/ModuleA';
+import type { Contact, ContactFilters, ContactType, PreferredContact, CaseContact } from '../../types/ModuleA';
 import { CONTACT_TYPES, CONTACT_TYPE_LABELS, PREFERRED_CONTACT_METHODS, PREFERRED_CONTACT_LABELS } from '../../types/ModuleA';
 
 // Import floral assets for unique screen design
@@ -23,12 +24,15 @@ export const ContactManager: React.FC = () => {
   const { 
     contacts, 
     cases,
+    caseContacts,
     isLoading, 
     error,
     loadContacts, 
     searchContacts,
     deleteContact,
     loadCases,
+    loadPartiesForCase,
+    loadContactsForCase,
     clearError 
   } = useCaseStore();
 
@@ -38,6 +42,7 @@ export const ContactManager: React.FC = () => {
   const [filters, setFilters] = useState<ContactFilters>({});
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [contactToLink, setContactToLink] = useState<Contact | null>(null);
+  const [editingCaseContact, setEditingCaseContact] = useState<CaseContact | null>(null);
   const [targetCaseId, setTargetCaseId] = useState<number | null>(null);
   
   // Modal states
@@ -45,6 +50,8 @@ export const ContactManager: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSelectCaseModal, setShowSelectCaseModal] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [contactToView, setContactToView] = useState<Contact | null>(null);
 
   // Load contacts and cases on mount
   useEffect(() => {
@@ -94,12 +101,31 @@ export const ContactManager: React.FC = () => {
 
   const handleLinkToCase = (contact: Contact) => {
     setContactToLink(contact);
+    setEditingCaseContact(null);
     setShowSelectCaseModal(true);
   };
 
-  const handleCaseSelection = (caseId: number) => {
+  const handleCaseSelection = async (caseId: number) => {
     setTargetCaseId(caseId);
     setShowSelectCaseModal(false);
+    if (!contactToLink) return;
+
+    // Load parties & case contacts before opening modal
+    console.log('🌻 Loading parties for case', caseId, 'before opening link modal (Tier 1)');
+    await loadPartiesForCase(caseId);
+    await loadContactsForCase(caseId);
+
+    const latestCaseContacts = useCaseStore.getState().caseContacts;
+    const existingCaseContact = latestCaseContacts.find(
+      (cc) => cc.case_id === caseId && cc.contact_id === contactToLink.id
+    );
+
+    if (existingCaseContact) {
+      setEditingCaseContact(existingCaseContact);
+    } else {
+      setEditingCaseContact(null);
+    }
+
     setShowLinkModal(true);
   };
 
@@ -119,8 +145,12 @@ export const ContactManager: React.FC = () => {
 
   const handleLinkSuccess = async () => {
     await loadContacts(filters);
+    if (targetCaseId) {
+      await loadContactsForCase(targetCaseId);
+    }
     setContactToLink(null);
     setTargetCaseId(null);
+    setEditingCaseContact(null);
   };
 
   // Close modals
@@ -133,6 +163,17 @@ export const ContactManager: React.FC = () => {
     setShowLinkModal(false);
     setContactToLink(null);
     setTargetCaseId(null);
+    setEditingCaseContact(null);
+  };
+
+  const handleViewContactDetails = (contact: Contact) => {
+    setContactToView(contact);
+    setShowDetailModal(true);
+  };
+
+  const handleCloseDetailModal = () => {
+    setShowDetailModal(false);
+    setContactToView(null);
   };
 
   // Filter contacts based on search and filters
@@ -147,6 +188,21 @@ export const ContactManager: React.FC = () => {
         contact.phone_primary?.toLowerCase().includes(query);
       
       if (!matchesSearch) return false;
+    }
+
+    // Contact type filter
+    if (filters.contact_type && contact.contact_type !== filters.contact_type) {
+      return false;
+    }
+
+    // Preferred contact method filter
+    if (filters.preferred_contact && contact.preferred_contact !== filters.preferred_contact) {
+      return false;
+    }
+
+    // Do not contact filter
+    if (filters.do_not_contact !== undefined && contact.do_not_contact !== filters.do_not_contact) {
+      return false;
     }
 
     return true;
@@ -357,6 +413,7 @@ export const ContactManager: React.FC = () => {
                 onEdit={handleEditContact}
                 onDelete={handleDeleteContact}
                 onLinkToCase={handleLinkToCase}
+                onViewDetails={handleViewContactDetails}
                 showActions={true}
               />
             ))}
@@ -398,8 +455,18 @@ export const ContactManager: React.FC = () => {
         isOpen={showLinkModal}
         contact={contactToLink}
         caseId={targetCaseId}
+        caseContact={editingCaseContact}
         onClose={handleCloseLinkModal}
         onSuccess={handleLinkSuccess}
+      />
+
+      <ContactDetailModal
+        isOpen={showDetailModal}
+        contact={contactToView}
+        onClose={handleCloseDetailModal}
+        onEdit={handleEditContact}
+        onDelete={handleDeleteContact}
+        onLinkToCase={handleLinkToCase}
       />
     </div>
   );

@@ -143,7 +143,7 @@ export const ContactTypeRoleSelector: React.FC<ContactTypeRoleSelectorProps> = (
               <option value="">Select Role...</option>
               {getAvailableRoles(contactType).map((roleOption) => (
                 <option key={roleOption} value={roleOption}>
-                  {CONTACT_ROLE_LABELS[contactType]?.[roleOption] || roleOption}
+                  {CONTACT_ROLE_LABELS[roleOption] || roleOption}
                 </option>
               ))}
             </select>
@@ -158,47 +158,50 @@ export const ContactTypeRoleSelector: React.FC<ContactTypeRoleSelectorProps> = (
             {CONTACT_TYPE_LABELS[contactType]} - {
               contactType === 'other' 
                 ? role 
-                : CONTACT_ROLE_LABELS[contactType]?.[role] || role
+                : CONTACT_ROLE_LABELS[role] || role
             }
           </div>
-          <div className="text-sunflower-brown/50">
-            {/* Add helpful descriptions for each type/role combination */}
-            {contactType === 'adjuster' && role === 'primary' && 
-              'The main insurance adjuster handling this claim.'}
-            {contactType === 'adjuster' && role === 'secondary' && 
-              'Backup or specialized adjuster for this claim.'}
-            {contactType === 'plaintiff_counsel' && role === 'primary' && 
-              'Lead attorney representing the plaintiff.'}
-            {contactType === 'plaintiff_counsel' && role === 'secondary' && 
-              'Co-counsel or associate attorney for plaintiff.'}
-            {contactType === 'defense_counsel' && role === 'lead' && 
-              'Lead defense attorney for the primary defendant.'}
-            {contactType === 'defense_counsel' && role === 'co_counsel' && 
-              'Co-counsel working with lead defense attorney.'}
-            {contactType === 'defense_counsel' && role === 'co_defendant_counsel' && 
-              'Attorney representing a co-defendant in the case.'}
-            {contactType === 'expert' && role === 'retained' && 
-              'Expert witness formally retained and expected to testify.'}
-            {contactType === 'expert' && role === 'consulting' && 
-              'Consulting expert providing guidance, may not testify.'}
-            {contactType === 'medical_provider' && role === 'treating_physician' && 
-              'Primary physician treating the plaintiff.'}
-            {contactType === 'medical_provider' && role === 'facility' && 
-              'Hospital, clinic, or medical facility contact.'}
-            {contactType === 'medical_provider' && role === 'records_custodian' && 
-              'Person responsible for releasing medical records.'}
-            {contactType === 'witness' && role === 'fact' && 
-              'Person with firsthand knowledge of case facts.'}
-            {contactType === 'witness' && role === 'expert' && 
-              'Expert witness providing specialized knowledge.'}
-            {contactType === 'court_personnel' && role === 'judge' && 
-              'Presiding judge for this case.'}
-            {contactType === 'court_personnel' && role === 'clerk' && 
-              'Court clerk handling case administration.'}
-            {contactType === 'court_personnel' && role === 'staff_attorney' && 
-              'Staff attorney assisting the court.'}
-            {contactType === 'other' && 
-              'Custom contact type for specialized case needs.'}
+          <div className="text-sunflower-brown/50 space-y-1">
+            {contactType === 'adjuster' && role === 'primary' && 'Main adjuster handling the claim day-to-day.'}
+            {contactType === 'adjuster' && role === 'secondary' && 'Backup or specialty adjuster assisting the file.'}
+            {contactType === 'adjuster' && role === 'supervisor' && 'Supervising adjuster overseeing strategy.'}
+            {contactType === 'adjuster' && role === 'claims_manager' && 'Claims manager/director with settlement authority.'}
+            {contactType === 'tpa_agent' && 'Third-party administrator contact coordinating on behalf of the carrier.'}
+            {contactType === 'corporate_rep' && 'Internal corporate representative (risk, GC, safety, executive, etc.).'}
+            {contactType === 'insurance_broker' && 'Broker/agent who placed or manages the policy.'}
+            {contactType === 'plaintiff_counsel' && role === 'primary' && 'Lead attorney representing the plaintiff.'}
+            {contactType === 'plaintiff_counsel' && role === 'secondary' && 'Associate or co-counsel for the plaintiff.'}
+            {contactType === 'plaintiff_counsel' && role === 'local_counsel' && 'Local counsel assisting the plaintiff’s firm.'}
+            {contactType === 'defense_counsel' && role === 'lead' && 'Lead defense attorney for our insured.'}
+            {contactType === 'defense_counsel' && role === 'co_counsel' && 'Co-counsel working alongside lead defense.'}
+            {contactType === 'defense_counsel' && role === 'co_defendant_counsel' && 'Attorney representing a separate co-defendant.'}
+            {contactType === 'defense_counsel' && role === 'local_counsel' && 'Local counsel coverage for venue-specific practice.'}
+            {contactType === 'defense_counsel' && role === 'coverage_counsel' && 'Coverage counsel advising on policy issues.'}
+            {contactType === 'expert' && role === 'retained' && 'Testifying expert retained for the defense.'}
+            {contactType === 'expert' && role === 'consulting' && 'Consulting expert supporting strategy (may not testify).'}
+            {contactType === 'expert' && role === 'rebuttal' && 'Expert retained solely to rebut opposing experts.'}
+            {contactType === 'expert' && role === 'damages' && 'Expert analyzing damages or exposure.'}
+            {contactType === 'expert' && role === 'liability' && 'Expert focusing on liability/causation issues.'}
+            {contactType === 'expert' && role === 'medical' && 'Medical expert reviewing treatment or condition.'}
+            {contactType === 'investigator' && role === 'surveillance' && 'Investigator handling surveillance assignments.'}
+            {contactType === 'investigator' && role === 'background' && 'Investigator handling background/social media digs.'}
+            {contactType === 'medical_provider' && role === 'treating_physician' && 'Primary treating physician for the claimant.'}
+            {contactType === 'medical_provider' && role === 'facility' && 'Hospital/clinic/business contact.'}
+            {contactType === 'medical_provider' && role === 'records_custodian' && 'Records custodian for subpoenas/requests.'}
+            {contactType === 'medical_provider' && role === 'billing_contact' && 'Billing/finance representative.'}
+            {contactType === 'witness' && role === 'fact' && 'Fact witness with first-hand knowledge.'}
+            {contactType === 'witness' && role === 'expert' && 'Expert witness providing specialized knowledge.'}
+            {contactType === 'court_personnel' && role === 'judge' && 'Presiding judge or magistrate.'}
+            {contactType === 'court_personnel' && role === 'clerk' && 'Court clerk scheduling and docket contact.'}
+            {contactType === 'court_personnel' && role === 'staff_attorney' && 'Staff attorney supporting the court.'}
+            {contactType === 'mediator_arbitrator' && role === 'mediator' && 'Neutral facilitating settlement discussions.'}
+            {contactType === 'mediator_arbitrator' && role === 'arbitrator' && 'Neutral decision-maker for arbitration.'}
+            {contactType === 'mediator_arbitrator' && role === 'special_master' && 'Court-appointed neutral with special duties.'}
+            {contactType === 'vendor' && role === 'records_retrieval' && 'Vendor assisting with record retrieval.'}
+            {contactType === 'vendor' && role === 'process_server' && 'Process server for service of process needs.'}
+            {contactType === 'vendor' && role === 'court_reporter' && 'Court reporting / transcription contact.'}
+            {contactType === 'vendor' && role === 'translator' && 'Language service provider/translator.'}
+            {(contactType === 'other' || role === 'other') && 'Custom role. Use contact notes to capture additional detail.'}
           </div>
         </div>
       )}

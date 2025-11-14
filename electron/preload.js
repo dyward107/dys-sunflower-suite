@@ -74,6 +74,32 @@ contextBridge.exposeInMainWorld('electron', {
 
     // Utility
     deleteCase: (id) => ipcRenderer.invoke('db:deleteCase', id),
-    generateCaseDisplayName: (caseId) => ipcRenderer.invoke('db:generateCaseDisplayName', caseId)
+    generateCaseDisplayName: (caseId) => ipcRenderer.invoke('db:generateCaseDisplayName', caseId),
+
+    // ============================================================================
+    // MODULE B: TASK & WORKFLOW MANAGER
+    // ============================================================================
+
+    // Tasks
+    getTasks: (caseId, filters) => ipcRenderer.invoke('db:getTasks', caseId, filters),
+    getTaskById: (id) => ipcRenderer.invoke('db:getTaskById', id),
+    createTask: (taskData) => ipcRenderer.invoke('db:createTask', taskData),
+    updateTask: (id, updates) => ipcRenderer.invoke('db:updateTask', id, updates),
+    completeTask: (id) => ipcRenderer.invoke('db:completeTask', id),
+    deleteTask: (id) => ipcRenderer.invoke('db:deleteTask', id),
+
+    // Time Entries
+    createTimeEntry: (entryData) => ipcRenderer.invoke('db:createTimeEntry', entryData),
+    getTimeEntries: (taskId) => ipcRenderer.invoke('db:getTimeEntries', taskId),
+    updateTimeEntry: (id, updates) => ipcRenderer.invoke('db:updateTimeEntry', id, updates),
+    deleteTimeEntry: (id) => ipcRenderer.invoke('db:deleteTimeEntry', id),
+
+    // Task Groups
+    getTaskGroups: (caseId) => ipcRenderer.invoke('db:getTaskGroups', caseId),
+    createTaskGroup: (groupData) => ipcRenderer.invoke('db:createTaskGroup', groupData),
+
+    // Calendar Events
+    createCalendarEvent: (eventData) => ipcRenderer.invoke('db:createCalendarEvent', eventData),
+    getCalendarEvents: (taskId, caseId) => ipcRenderer.invoke('db:getCalendarEvents', taskId, caseId)
   }
 });
