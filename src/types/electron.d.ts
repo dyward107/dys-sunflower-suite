@@ -1,7 +1,10 @@
 // ELECTRON API TYPE DEFINITIONS
-// Dy's Sunflower Suite v4.0
+// Dy's Sunflower Suite v5.0 - Phases 1A & 1B
 
-import { Case, CaseInput, CaseFilters, Party, PartyInput, Policy, PolicyInput } from './ModuleA';
+import { 
+  Case, CaseInput, CaseFilters, Party, PartyInput, Policy, PolicyInput,
+  Contact, ContactInput, ContactFilters, CaseContact, CaseContactInput
+} from './ModuleA';
 
 export interface ElectronAPI {
   db: {
@@ -23,6 +26,19 @@ export interface ElectronAPI {
     getCasePolicies: (caseId: number) => Promise<Policy[]>;
     updatePolicy: (id: number, updates: Partial<PolicyInput>) => Promise<boolean>;
     deletePolicy: (id: number) => Promise<boolean>;
+
+    // Contacts (Phase 1B)
+    createContact: (contactData: ContactInput) => Promise<number>;
+    getContacts: (filters?: ContactFilters) => Promise<Contact[]>;
+    updateContact: (id: number, updates: Partial<ContactInput>) => Promise<boolean>;
+    deleteContact: (id: number) => Promise<boolean>;
+    searchContacts: (query: string) => Promise<Contact[]>;
+
+    // Case-Contact Relationships (Phase 1B)
+    addContactToCase: (caseContactData: CaseContactInput) => Promise<number>;
+    getCaseContacts: (caseId: number) => Promise<CaseContact[]>;
+    updateCaseContact: (id: number, updates: Partial<CaseContactInput>) => Promise<boolean>;
+    removeCaseContactRelationship: (id: number) => Promise<boolean>;
 
     // Utility
     deleteCase: (id: number) => Promise<boolean>;

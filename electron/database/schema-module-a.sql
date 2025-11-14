@@ -1,6 +1,6 @@
--- MODULE A PHASE 1A: CORE CASE DATA
--- Dy's Sunflower Suite v4.0
--- Database Schema for Cases, Parties, and Policies
+-- MODULE A: CASE MANAGER (PHASES 1A & 1B)
+-- Dy's Sunflower Suite v5.0
+-- Database Schema for Cases, Parties, Policies, and Contacts
 
 -- ============================================================================
 -- TABLE 1: cases
@@ -135,3 +135,96 @@ CREATE TABLE IF NOT EXISTS case_policies (
 
 CREATE INDEX IF NOT EXISTS idx_case_policies_case_id ON case_policies(case_id);
 CREATE INDEX IF NOT EXISTS idx_case_policies_type ON case_policies(policy_type);
+
+-- ============================================================================
+-- MODULE A PHASE 1B: CONTACT MANAGEMENT
+-- ============================================================================
+
+-- ============================================================================
+-- TABLE 4: global_contacts
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS global_contacts (
+  -- Primary Key
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  -- Contact Information
+  name TEXT NOT NULL,
+  organization TEXT,
+  title TEXT,
+
+  -- Contact Methods
+  phone_primary TEXT,
+  phone_secondary TEXT,
+  email_primary TEXT,
+  email_secondary TEXT,
+  address TEXT,
+
+  -- Communication Preferences
+  preferred_contact TEXT CHECK(preferred_contact IN ('email', 'phone', 'mail', 'text')),
+  best_times TEXT,
+  do_not_contact INTEGER DEFAULT 0,
+
+  -- Notes
+  notes TEXT,
+
+  -- Audit Trail
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_global_contacts_name ON global_contacts(name);
+CREATE INDEX IF NOT EXISTS idx_global_contacts_organization ON global_contacts(organization);
+CREATE INDEX IF NOT EXISTS idx_global_contacts_email ON global_contacts(email_primary);
+
+-- ============================================================================
+-- TABLE 5: case_contacts
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS case_contacts (
+  -- Primary Key
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  -- Foreign Keys
+  case_id INTEGER NOT NULL,
+  contact_id INTEGER NOT NULL,
+
+  -- Contact Role Information
+  contact_type TEXT NOT NULL CHECK(contact_type IN (
+    'adjuster', 'plaintiff_counsel', 'defense_counsel', 'expert', 
+    'medical_provider', 'witness', 'court_personnel', 'other'
+  )),
+  role TEXT NOT NULL CHECK(
+    (contact_type = 'adjuster' AND role IN ('primary', 'secondary')) OR
+    (contact_type = 'plaintiff_counsel' AND role IN ('primary', 'secondary')) OR
+    (contact_type = 'defense_counsel' AND role IN ('lead', 'co_counsel', 'co_defendant_counsel')) OR
+    (contact_type = 'expert' AND role IN ('retained', 'consulting')) OR
+    (contact_type = 'medical_provider' AND role IN ('treating_physician', 'facility', 'records_custodian')) OR
+    (contact_type = 'witness' AND role IN ('fact', 'expert')) OR
+    (contact_type = 'court_personnel' AND role IN ('judge', 'clerk', 'staff_attorney')) OR
+    (contact_type = 'other' AND role IS NOT NULL)
+  ),
+
+  -- Relationship Status
+  is_primary INTEGER DEFAULT 0,
+  relationship_start_date DATE,
+  relationship_end_date DATE,
+
+  -- Case-Specific Notes
+  notes TEXT,
+
+  -- Audit Trail
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  -- Foreign Key Constraints
+  FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
+  FOREIGN KEY (contact_id) REFERENCES global_contacts(id) ON DELETE CASCADE,
+
+  -- Ensure unique contact-role per case
+  UNIQUE(case_id, contact_id, contact_type, role)
+);
+
+CREATE INDEX IF NOT EXISTS idx_case_contacts_case_id ON case_contacts(case_id);
+CREATE INDEX IF NOT EXISTS idx_case_contacts_contact_id ON case_contacts(contact_id);
+CREATE INDEX IF NOT EXISTS idx_case_contacts_type ON case_contacts(contact_type);
+CREATE INDEX IF NOT EXISTS idx_case_contacts_role ON case_contacts(role);
+CREATE INDEX IF NOT EXISTS idx_case_contacts_primary ON case_contacts(is_primary);

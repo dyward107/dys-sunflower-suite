@@ -7,8 +7,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        brand: ['Sirivennela', 'serif'],
-        base: ['Quicksand', 'sans-serif'],
+        brand: ['Sirivennela', 'serif'],  // Application name/branding font
+        base: ['Quicksand', 'sans-serif'], // Everything else uses Quicksand
       },
       colors: {
         sunflower: {

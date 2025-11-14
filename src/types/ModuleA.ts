@@ -1,5 +1,5 @@
 // MODULE A: CASE MANAGER - TYPE DEFINITIONS
-// Dy's Sunflower Suite v4.0
+// Dy's Sunflower Suite v5.0 - Phases 1A & 1B
 
 // ============================================================================
 // CASE TYPES
@@ -131,6 +131,92 @@ export interface PolicyInput {
 }
 
 // ============================================================================
+// CONTACT TYPES (PHASE 1B)
+// ============================================================================
+
+export type ContactType = 'adjuster' | 'plaintiff_counsel' | 'defense_counsel' | 'expert' | 'medical_provider' | 'witness' | 'court_personnel' | 'other';
+
+export type ContactRole = 
+  | 'primary' | 'secondary' // adjuster
+  | 'primary' | 'secondary' // plaintiff_counsel  
+  | 'lead' | 'co_counsel' | 'co_defendant_counsel' // defense_counsel
+  | 'retained' | 'consulting' // expert
+  | 'treating_physician' | 'facility' | 'records_custodian' // medical_provider
+  | 'fact' | 'expert' // witness
+  | 'judge' | 'clerk' | 'staff_attorney' // court_personnel
+  | string; // other (custom role)
+
+export type PreferredContact = 'email' | 'phone' | 'mail' | 'text';
+
+export interface Contact {
+  id: number;
+  name: string;
+  organization: string | null;
+  title: string | null;
+  phone_primary: string | null;
+  phone_secondary: string | null;
+  email_primary: string | null;
+  email_secondary: string | null;
+  address: string | null;
+  preferred_contact: PreferredContact | null;
+  best_times: string | null;
+  do_not_contact: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContactInput {
+  name: string;
+  organization?: string;
+  title?: string;
+  phone_primary?: string;
+  phone_secondary?: string;
+  email_primary?: string;
+  email_secondary?: string;
+  address?: string;
+  preferred_contact?: PreferredContact;
+  best_times?: string;
+  do_not_contact?: boolean;
+  notes?: string;
+}
+
+export interface CaseContact {
+  id: number;
+  case_id: number;
+  contact_id: number;
+  contact_type: ContactType;
+  role: ContactRole;
+  is_primary: boolean;
+  relationship_start_date: string | null;
+  relationship_end_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  
+  // Joined contact information (populated by query)
+  contact?: Contact;
+}
+
+export interface CaseContactInput {
+  case_id: number;
+  contact_id: number;
+  contact_type: ContactType;
+  role: ContactRole;
+  is_primary?: boolean;
+  relationship_start_date?: string;
+  relationship_end_date?: string;
+  notes?: string;
+}
+
+export interface ContactFilters {
+  name?: string;
+  organization?: string;
+  contact_type?: ContactType;
+  preferred_contact?: PreferredContact;
+}
+
+// ============================================================================
 // CONSTANTS
 // ============================================================================
 
@@ -179,3 +265,78 @@ export const CASE_SUBTYPES: Record<string, string[]> = {
 export const POLICY_TYPES = ['Primary', 'UM/UIM', 'Excess/Umbrella'] as const;
 
 export const UMUIM_TYPES = ['Add-on', 'Set-off'] as const;
+
+// ============================================================================
+// CONTACT CONSTANTS (PHASE 1B)
+// ============================================================================
+
+export const CONTACT_TYPES = [
+  'adjuster',
+  'plaintiff_counsel', 
+  'defense_counsel',
+  'expert',
+  'medical_provider',
+  'witness',
+  'court_personnel',
+  'other'
+] as const;
+
+export const CONTACT_ROLES: Record<ContactType, string[]> = {
+  adjuster: ['primary', 'secondary'],
+  plaintiff_counsel: ['primary', 'secondary'],
+  defense_counsel: ['lead', 'co_counsel', 'co_defendant_counsel'],
+  expert: ['retained', 'consulting'],
+  medical_provider: ['treating_physician', 'facility', 'records_custodian'],
+  witness: ['fact', 'expert'],
+  court_personnel: ['judge', 'clerk', 'staff_attorney'],
+  other: [] // Custom roles allowed
+};
+
+export const CONTACT_TYPE_LABELS: Record<ContactType, string> = {
+  adjuster: 'Adjuster',
+  plaintiff_counsel: 'Plaintiff Counsel',
+  defense_counsel: 'Defense Counsel', 
+  expert: 'Expert',
+  medical_provider: 'Medical Provider',
+  witness: 'Witness',
+  court_personnel: 'Court Personnel',
+  other: 'Other'
+};
+
+export const CONTACT_ROLE_LABELS: Record<string, string> = {
+  // Adjuster roles
+  primary: 'Primary',
+  secondary: 'Secondary',
+  
+  // Defense counsel roles  
+  lead: 'Lead Counsel',
+  co_counsel: 'Co-Counsel',
+  co_defendant_counsel: 'Co-Defendant Counsel',
+  
+  // Expert roles
+  retained: 'Retained Expert',
+  consulting: 'Consulting Expert',
+  
+  // Medical provider roles
+  treating_physician: 'Treating Physician',
+  facility: 'Medical Facility', 
+  records_custodian: 'Records Custodian',
+  
+  // Witness roles
+  fact: 'Fact Witness',
+  expert: 'Expert Witness',
+  
+  // Court personnel roles
+  judge: 'Judge',
+  clerk: 'Clerk',
+  staff_attorney: 'Staff Attorney'
+};
+
+export const PREFERRED_CONTACT_METHODS = ['email', 'phone', 'mail', 'text'] as const;
+
+export const PREFERRED_CONTACT_LABELS: Record<PreferredContact, string> = {
+  email: 'Email',
+  phone: 'Phone',
+  mail: 'Mail',
+  text: 'Text Message'
+};

@@ -1,12 +1,17 @@
 // CASE DETAIL COMPONENT - MODULE A PHASE 1A
-// Dy's Sunflower Suite v4.0
+// Dy's Sunflower Suite v5.1
 // Displays detailed view of a case with parties and policies
+// UPDATED: Now using sunflower design system + AppLayout
 
 import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCaseStore } from '../../stores/caseStore';
-import botanicalCornerLeft from '../shared/botanical-corner-left.svg?url';
-import botanicalCornerRight from '../shared/botanical-corner-right.svg?url';
+import { sunflowerTheme } from '../../styles/sunflowerTheme';
+
+// Floral assets
+import heroSunflower from '../../assets/florals/heroes/sunflowers-cluster.png';
+import accentSingle from '../../assets/florals/accents/sunflower-single.png';
+import subtleStems from '../../assets/florals/subtles/sunflowers-standing-small.png';
 
 export const CaseDetail: React.FC = () => {
   const { caseId } = useParams<{ caseId: string }>();
@@ -41,17 +46,19 @@ export const CaseDetail: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center py-8 text-sunflower-brown">Loading case details...</div>
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="text-center py-12">
+          <p className="text-sunflower-brown text-lg">Loading case details...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-800">
-          {error}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="rounded-3xl bg-red-50/90 border border-red-200 px-6 py-4 shadow-sm backdrop-blur-sm">
+          <p className="text-red-800">{error}</p>
         </div>
       </div>
     );
@@ -59,347 +66,358 @@ export const CaseDetail: React.FC = () => {
 
   if (!selectedCase) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center py-8 text-sunflower-brown">Case not found</div>
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="text-center py-12">
+          <p className="text-sunflower-brown text-lg">Case not found</p>
+          <button onClick={handleBack} className={sunflowerTheme.buttons.secondary + ' mt-4'}>
+            ← Back to Cases
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen">
-      {/* Botanical Backgrounds */}
+    <div className="relative min-h-full">
+      {/* Floral Backgrounds */}
       <img
-        src={botanicalCornerLeft}
-        className="fixed top-0 left-0 w-64 h-64 opacity-30 pointer-events-none select-none z-0"
+        src={heroSunflower}
+        className="absolute top-0 left-0 w-[380px] opacity-28 pointer-events-none select-none z-0"
         alt=""
       />
       <img
-        src={botanicalCornerRight}
-        className="fixed bottom-0 right-0 w-64 h-64 opacity-30 pointer-events-none select-none z-0"
+        src={accentSingle}
+        className="absolute bottom-0 right-0 w-[220px] opacity-22 pointer-events-none select-none z-0"
         alt=""
       />
-
-      <div className="relative z-10 container mx-auto p-6">
-        {/* Branding Header */}
-        <div className="mb-4">
-          <h1 className="font-brand text-4xl text-sunflower-brown flex items-center gap-2 mb-4">
-            <span>🌻</span>
-            Dy&apos;s Sunflower Suite
-          </h1>
-        </div>
-
+      <img
+        src={subtleStems}
+        className="absolute top-0 right-0 w-[180px] opacity-18 pointer-events-none select-none z-0"
+        alt=""
+      />
+      
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-8 space-y-6">
         {/* Navigation and Case Header */}
-        <div className="flex justify-between items-start mb-6">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
           <div>
             <button
               onClick={handleBack}
-              className="text-sunflower-gold hover:text-sunflower-gold-dark mb-3 flex items-center transition-colors"
+              className="text-sunflower-gold hover:text-sunflower-gold-dark mb-3 inline-flex items-center gap-2 transition-colors font-medium"
             >
               ← Back to Cases
             </button>
-            <h2 className="text-3xl font-bold text-sunflower-brown">{selectedCase.case_name}</h2>
-            <p className="text-sunflower-brown/70 mt-1">CM# {selectedCase.cm_number}</p>
+            <h2 className={sunflowerTheme.typography.styles.pageTitle}>
+              {selectedCase.case_name}
+            </h2>
+            <p className={sunflowerTheme.typography.styles.muted + ' mt-2'}>
+              CM# {selectedCase.cm_number}
+            </p>
           </div>
           <button
             onClick={handleEdit}
-            className="px-6 py-3 bg-sunflower-gold text-white rounded-xl hover:bg-sunflower-gold-dark focus:outline-none focus:ring-2 focus:ring-sunflower-gold shadow-md transition-all"
+            className={sunflowerTheme.buttons.primary}
           >
             Edit Case
           </button>
         </div>
 
         {/* Case Information */}
-        <div className="relative rounded-3xl bg-white/80 backdrop-blur-sm shadow-md p-6 mb-6 border border-sunflower-taupe/60 overflow-hidden">
-          {/* Botanical Backgrounds Inside Card */}
-          <img
-            src={botanicalCornerLeft}
-            className="absolute top-0 left-0 w-48 h-48 opacity-25 pointer-events-none select-none z-0"
-            alt=""
-          />
-          <img
-            src={botanicalCornerRight}
-            className="absolute bottom-0 right-0 w-48 h-48 opacity-25 pointer-events-none select-none z-0"
-            alt=""
-          />
-
-          <div className="relative z-10">
-            <h2 className="text-xl font-semibold text-sunflower-brown mb-4">📋 CASE DETAILS</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-sunflower-brown">Lead Attorney</label>
-            <p className="mt-1 text-sunflower-brown">{selectedCase.lead_attorney}</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-sunflower-brown">Phase</label>
-            <p className="mt-1">
-              <span
-                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                  selectedCase.phase === 'Open'
-                    ? 'bg-sunflower-green text-sunflower-brown'
-                    : selectedCase.phase === 'Pending'
-                    ? 'bg-sunflower-gold text-white'
-                    : 'bg-sunflower-taupe text-sunflower-brown'
-                }`}
-              >
-                {selectedCase.phase}
-              </span>
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-sunflower-brown">Status</label>
-            <p className="mt-1 text-sunflower-brown">{selectedCase.status}</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-sunflower-brown">Case Type</label>
-            <p className="mt-1 text-sunflower-brown">
-              {selectedCase.case_type}
-              {selectedCase.case_subtype && ` - ${selectedCase.case_subtype}`}
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-sunflower-brown">Date Opened</label>
-            <p className="mt-1 text-sunflower-brown">
-              {new Date(selectedCase.date_opened).toLocaleDateString()}
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-sunflower-brown">Date of Loss</label>
-            <p className="mt-1 text-sunflower-brown">
-              {new Date(selectedCase.date_of_loss).toLocaleDateString()}
-            </p>
-          </div>
-          {selectedCase.date_closed && (
+        <div className={sunflowerTheme.containers.card + ' px-6 py-6'}>
+          <h2 className={sunflowerTheme.typography.styles.h2 + ' mb-6'}>
+            📋 CASE DETAILS
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-sunflower-brown">Date Closed</label>
-              <p className="mt-1 text-sunflower-brown">
-                {new Date(selectedCase.date_closed).toLocaleDateString()}
+              <label className={sunflowerTheme.typography.styles.label}>Lead Attorney</label>
+              <p className={sunflowerTheme.typography.styles.body + ' mt-1'}>
+                {selectedCase.lead_attorney}
+              </p>
+            </div>
+            <div>
+              <label className={sunflowerTheme.typography.styles.label}>Phase</label>
+              <p className="mt-1">
+                <span className={
+                  selectedCase.phase === 'Open' ? sunflowerTheme.badges.open :
+                  selectedCase.phase === 'Pending' ? sunflowerTheme.badges.pending :
+                  sunflowerTheme.badges.closed
+                }>
+                  {selectedCase.phase}
+                </span>
+              </p>
+            </div>
+            <div>
+              <label className={sunflowerTheme.typography.styles.label}>Status</label>
+              <p className={sunflowerTheme.typography.styles.body + ' mt-1'}>
+                {selectedCase.status}
+              </p>
+            </div>
+            <div>
+              <label className={sunflowerTheme.typography.styles.label}>Case Type</label>
+              <p className={sunflowerTheme.typography.styles.body + ' mt-1'}>
+                {selectedCase.case_type}
+                {selectedCase.case_subtype && ` - ${selectedCase.case_subtype}`}
+              </p>
+            </div>
+            <div>
+              <label className={sunflowerTheme.typography.styles.label}>Date Opened</label>
+              <p className={sunflowerTheme.typography.styles.body + ' mt-1'}>
+                {new Date(selectedCase.date_opened).toLocaleDateString()}
+              </p>
+            </div>
+            <div>
+              <label className={sunflowerTheme.typography.styles.label}>Date of Loss</label>
+              <p className={sunflowerTheme.typography.styles.body + ' mt-1'}>
+                {new Date(selectedCase.date_of_loss).toLocaleDateString()}
+              </p>
+            </div>
+            {selectedCase.date_closed && (
+              <div>
+                <label className={sunflowerTheme.typography.styles.label}>Date Closed</label>
+                <p className={sunflowerTheme.typography.styles.body + ' mt-1'}>
+                  {new Date(selectedCase.date_closed).toLocaleDateString()}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Venue Information */}
+          <div className="mt-8 pt-6 border-t border-sunflower-taupe/40">
+            <h3 className={sunflowerTheme.typography.styles.h3 + ' mb-4'}>Venue</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className={sunflowerTheme.typography.styles.label}>Court</label>
+                <p className={sunflowerTheme.typography.styles.body + ' mt-1'}>
+                  {selectedCase.venue_court}
+                </p>
+              </div>
+              {selectedCase.venue_judge && (
+                <div>
+                  <label className={sunflowerTheme.typography.styles.label}>Judge</label>
+                  <p className={sunflowerTheme.typography.styles.body + ' mt-1'}>
+                    {selectedCase.venue_judge}
+                  </p>
+                </div>
+              )}
+              {selectedCase.venue_clerk && (
+                <div>
+                  <label className={sunflowerTheme.typography.styles.label}>Clerk</label>
+                  <p className={sunflowerTheme.typography.styles.body + ' mt-1'}>
+                    {selectedCase.venue_clerk}
+                  </p>
+                </div>
+              )}
+              {selectedCase.venue_staff_attorney && (
+                <div>
+                  <label className={sunflowerTheme.typography.styles.label}>
+                    Staff Attorney
+                  </label>
+                  <p className={sunflowerTheme.typography.styles.body + ' mt-1'}>
+                    {selectedCase.venue_staff_attorney}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Discovery Information */}
+          {selectedCase.discovery_close_date && (
+            <div className="mt-8 pt-6 border-t border-sunflower-taupe/40">
+              <h3 className={sunflowerTheme.typography.styles.h3 + ' mb-4'}>Discovery</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className={sunflowerTheme.typography.styles.label}>Close Date</label>
+                  <p className={sunflowerTheme.typography.styles.body + ' mt-1'}>
+                    {new Date(selectedCase.discovery_close_date).toLocaleDateString()}
+                  </p>
+                </div>
+                <div>
+                  <label className={sunflowerTheme.typography.styles.label}>
+                    Deadline Extended
+                  </label>
+                  <p className={sunflowerTheme.typography.styles.body + ' mt-1'}>
+                    {selectedCase.discovery_deadline_extended ? 'Yes' : 'No'}
+                  </p>
+                </div>
+                {selectedCase.discovery_deadline_notes && (
+                  <div className="md:col-span-2">
+                    <label className={sunflowerTheme.typography.styles.label}>Notes</label>
+                    <p className={sunflowerTheme.typography.styles.body + ' mt-1'}>
+                      {selectedCase.discovery_deadline_notes}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Special Flags */}
+          <div className="mt-8 pt-6 border-t border-sunflower-taupe/40">
+            <h3 className={sunflowerTheme.typography.styles.h3 + ' mb-4'}>
+              Special Considerations
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {selectedCase.is_wrongful_death && (
+                <span className="px-3 py-1 bg-red-100 text-red-800 text-sm rounded-full font-medium">
+                  Wrongful Death
+                </span>
+              )}
+              {selectedCase.is_survival_action && (
+                <span className="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded-full font-medium">
+                  Survival Action
+                </span>
+              )}
+              {selectedCase.has_deceased_defendants && (
+                <span className={sunflowerTheme.badges.default}>
+                  Deceased Defendants
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Notes */}
+          {selectedCase.notes && (
+            <div className="mt-8 pt-6 border-t border-sunflower-taupe/40">
+              <label className={sunflowerTheme.typography.styles.label}>Notes</label>
+              <p className={sunflowerTheme.typography.styles.body + ' mt-2 whitespace-pre-wrap'}>
+                {selectedCase.notes}
               </p>
             </div>
           )}
         </div>
 
-        {/* Venue Information */}
-        <div className="mt-6">
-          <h3 className="text-lg font-medium text-sunflower-brown mb-3">Venue</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-sunflower-brown">Court</label>
-              <p className="mt-1 text-sunflower-brown">{selectedCase.venue_court}</p>
-            </div>
-            {selectedCase.venue_judge && (
-              <div>
-                <label className="block text-sm font-medium text-sunflower-brown">Judge</label>
-                <p className="mt-1 text-sunflower-brown">{selectedCase.venue_judge}</p>
-              </div>
-            )}
-            {selectedCase.venue_clerk && (
-              <div>
-                <label className="block text-sm font-medium text-sunflower-brown">Clerk</label>
-                <p className="mt-1 text-sunflower-brown">{selectedCase.venue_clerk}</p>
-              </div>
-            )}
-            {selectedCase.venue_staff_attorney && (
-              <div>
-                <label className="block text-sm font-medium text-sunflower-brown">Staff Attorney</label>
-                <p className="mt-1 text-sunflower-brown">{selectedCase.venue_staff_attorney}</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Discovery Information */}
-        {selectedCase.discovery_close_date && (
-          <div className="mt-6">
-            <h3 className="text-lg font-medium text-sunflower-brown mb-3">Discovery</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-sunflower-brown">Close Date</label>
-                <p className="mt-1 text-sunflower-brown">
-                  {new Date(selectedCase.discovery_close_date).toLocaleDateString()}
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-sunflower-brown">Deadline Extended</label>
-                <p className="mt-1 text-sunflower-brown">
-                  {selectedCase.discovery_deadline_extended ? 'Yes' : 'No'}
-                </p>
-              </div>
-              {selectedCase.discovery_deadline_notes && (
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-sunflower-brown">Notes</label>
-                  <p className="mt-1 text-sunflower-brown">{selectedCase.discovery_deadline_notes}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Special Flags */}
-        <div className="mt-6">
-          <h3 className="text-lg font-medium text-sunflower-brown mb-3">Special Considerations</h3>
-          <div className="flex flex-wrap gap-2">
-            {selectedCase.is_wrongful_death && (
-              <span className="px-3 py-1 bg-red-100 text-red-800 text-sm rounded-full">
-                Wrongful Death
-              </span>
-            )}
-            {selectedCase.is_survival_action && (
-              <span className="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded-full">
-                Survival Action
-              </span>
-            )}
-            {selectedCase.has_deceased_defendants && (
-              <span className="px-3 py-1 bg-sunflower-taupe text-sunflower-brown text-sm rounded-full">
-                Deceased Defendants
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Notes */}
-        {selectedCase.notes && (
-          <div className="mt-6">
-            <label className="block text-sm font-medium text-sunflower-brown">Notes</label>
-            <p className="mt-1 text-sunflower-brown whitespace-pre-wrap">{selectedCase.notes}</p>
-          </div>
-        )}
-          </div>
-        </div>
-
         {/* Parties */}
-        <div className="relative rounded-3xl bg-white/80 backdrop-blur-sm shadow-md p-6 mb-6 border border-sunflower-taupe/60 overflow-hidden">
-          {/* Botanical Backgrounds Inside Card */}
-          <img
-            src={botanicalCornerLeft}
-            className="absolute top-0 left-0 w-48 h-48 opacity-25 pointer-events-none select-none z-0"
-            alt=""
-          />
-          <img
-            src={botanicalCornerRight}
-            className="absolute bottom-0 right-0 w-48 h-48 opacity-25 pointer-events-none select-none z-0"
-            alt=""
-          />
-
-          <div className="relative z-10">
-            <h2 className="text-xl font-semibold text-sunflower-brown mb-4">👥 PARTIES</h2>
-            {parties.length === 0 ? (
-              <p className="text-sunflower-brown">No parties added yet.</p>
-            ) : (
-              <div className="space-y-4">
-                {/* Plaintiffs */}
-                <div>
-                  <h3 className="text-lg font-medium text-sunflower-brown mb-2">Plaintiffs</h3>
-                  <div className="space-y-2">
-                    {parties
-                      .filter((p) => p.party_type === 'plaintiff')
-                      .map((party) => (
-                        <div key={party.id} className="border-l-4 border-blue-500 pl-4 py-2">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-sunflower-brown">{party.party_name}</p>
-                            {party.is_primary && (
-                              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                                Primary
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-
-                {/* Defendants */}
-                <div>
-                  <h3 className="text-lg font-medium text-sunflower-brown mb-2">Defendants</h3>
-                  <div className="space-y-2">
-                    {parties
-                      .filter((p) => p.party_type === 'defendant')
-                      .map((party) => (
-                        <div key={party.id} className="border-l-4 border-red-500 pl-4 py-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-medium text-sunflower-brown">{party.party_name}</p>
-                            {party.is_primary && (
-                              <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded">
-                                Primary
-                              </span>
-                            )}
-                            {party.is_insured && (
-                              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                                Insured
-                              </span>
-                            )}
-                            {party.monitor_for_service && (
-                              <span className="px-2 py-1 bg-sunflower-gold text-white text-xs rounded">
-                                Monitor Service
-                              </span>
-                            )}
-                          </div>
-                          {party.service_date && (
-                            <p className="text-sm text-sunflower-brown mt-1">
-                              Served: {new Date(party.service_date).toLocaleDateString()}
-                            </p>
+        <div className={sunflowerTheme.containers.card + ' px-6 py-6'}>
+          <h2 className={sunflowerTheme.typography.styles.h2 + ' mb-6'}>
+            👥 PARTIES
+          </h2>
+          {parties.length === 0 ? (
+            <p className={sunflowerTheme.typography.styles.muted}>No parties added yet.</p>
+          ) : (
+            <div className="space-y-6">
+              {/* Plaintiffs */}
+              <div>
+                <h3 className={sunflowerTheme.typography.styles.h3 + ' mb-3'}>Plaintiffs</h3>
+                <div className="space-y-3">
+                  {parties
+                    .filter((p) => p.party_type === 'plaintiff')
+                    .map((party) => (
+                      <div
+                        key={party.id}
+                        className="border-l-4 border-blue-500 bg-blue-50/50 rounded-r-lg pl-4 pr-4 py-3"
+                      >
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className={sunflowerTheme.typography.styles.body + ' font-semibold'}>
+                            {party.party_name}
+                          </p>
+                          {party.is_primary && (
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                              Primary
+                            </span>
                           )}
                         </div>
-                      ))}
-                  </div>
+                      </div>
+                    ))}
                 </div>
               </div>
-            )}
-          </div>
+
+              {/* Defendants */}
+              <div>
+                <h3 className={sunflowerTheme.typography.styles.h3 + ' mb-3'}>Defendants</h3>
+                <div className="space-y-3">
+                  {parties
+                    .filter((p) => p.party_type === 'defendant')
+                    .map((party) => (
+                      <div
+                        key={party.id}
+                        className="border-l-4 border-red-500 bg-red-50/50 rounded-r-lg pl-4 pr-4 py-3"
+                      >
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                          <p className={sunflowerTheme.typography.styles.body + ' font-semibold'}>
+                            {party.party_name}
+                          </p>
+                          {party.is_primary && (
+                            <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">
+                              Primary
+                            </span>
+                          )}
+                          {party.is_insured && (
+                            <span className={sunflowerTheme.badges.open}>Insured</span>
+                          )}
+                          {party.monitor_for_service && (
+                            <span className="px-2 py-1 bg-sunflower-gold text-white text-xs rounded-full font-medium">
+                              Monitor Service
+                            </span>
+                          )}
+                        </div>
+                        {party.service_date && (
+                          <p className={sunflowerTheme.typography.styles.muted + ' text-sm'}>
+                            Served: {new Date(party.service_date).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Policies */}
-        <div className="relative rounded-3xl bg-white/80 backdrop-blur-sm shadow-md p-6 border border-sunflower-taupe/60 overflow-hidden">
-          {/* Botanical Backgrounds Inside Card */}
-          <img
-            src={botanicalCornerLeft}
-            className="absolute top-0 left-0 w-48 h-48 opacity-25 pointer-events-none select-none z-0"
-            alt=""
-          />
-          <img
-            src={botanicalCornerRight}
-            className="absolute bottom-0 right-0 w-48 h-48 opacity-25 pointer-events-none select-none z-0"
-            alt=""
-          />
-
-          <div className="relative z-10">
-            <h2 className="text-xl font-semibold text-sunflower-brown mb-4">🏦 POLICIES</h2>
-        {policies.length === 0 ? (
-          <p className="text-sunflower-brown">No policies added yet.</p>
-        ) : (
-          <div className="space-y-3">
-            {policies.map((policy) => (
-              <div key={policy.id} className="border border-sunflower-taupe rounded-md p-4 bg-white">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-medium text-sunflower-brown">{policy.carrier_name}</p>
-                    <p className="text-sm text-sunflower-brown/70">Policy # {policy.policy_number}</p>
+        <div className={sunflowerTheme.containers.card + ' px-6 py-6'}>
+          <h2 className={sunflowerTheme.typography.styles.h2 + ' mb-6'}>
+            🏦 POLICIES
+          </h2>
+          {policies.length === 0 ? (
+            <p className={sunflowerTheme.typography.styles.muted}>No policies added yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {policies.map((policy) => (
+                <div
+                  key={policy.id}
+                  className="border border-sunflower-taupe/60 rounded-2xl p-5 bg-white/60 hover:bg-sunflower-beige/30 transition-colors"
+                >
+                  <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-3">
+                    <div className="flex-1">
+                      <p className={sunflowerTheme.typography.styles.body + ' font-semibold'}>
+                        {policy.carrier_name}
+                      </p>
+                      <p className={sunflowerTheme.typography.styles.muted + ' text-sm mt-1'}>
+                        Policy # {policy.policy_number}
+                      </p>
+                    </div>
+                    <span
+                      className={`px-3 py-1 text-xs rounded-full font-medium ${
+                        policy.policy_type === 'Primary'
+                          ? 'bg-sunflower-gold text-white'
+                          : policy.policy_type === 'UM/UIM'
+                          ? 'bg-sunflower-taupe text-sunflower-brown'
+                          : 'bg-sunflower-green/70 text-sunflower-brown'
+                      }`}
+                    >
+                      {policy.policy_type}
+                    </span>
                   </div>
-                  <span
-                    className={`px-2 py-1 text-xs rounded ${
-                      policy.policy_type === 'Primary'
-                        ? 'bg-sunflower-gold text-white'
-                        : policy.policy_type === 'UM/UIM'
-                        ? 'bg-sunflower-taupe text-sunflower-brown'
-                        : 'bg-sunflower-green text-sunflower-brown'
-                    }`}
-                  >
-                    {policy.policy_type}
-                  </span>
+                  <div className="mt-3 space-y-1">
+                    {policy.policy_limits && (
+                      <p className={sunflowerTheme.typography.styles.body + ' text-sm'}>
+                        <span className="font-medium">Limits:</span> {policy.policy_limits}
+                      </p>
+                    )}
+                    {policy.umuim_type && (
+                      <p className={sunflowerTheme.typography.styles.body + ' text-sm'}>
+                        <span className="font-medium">UM/UIM Type:</span> {policy.umuim_type}
+                      </p>
+                    )}
+                    {policy.we_are_retained_by_carrier && (
+                      <p className="text-sm text-sunflower-green font-medium mt-2">
+                        ✓ Retained by Carrier
+                      </p>
+                    )}
+                  </div>
                 </div>
-                {policy.policy_limits && (
-                  <p className="text-sm text-sunflower-brown mt-2">Limits: {policy.policy_limits}</p>
-                )}
-                {policy.umuim_type && (
-                  <p className="text-sm text-sunflower-brown mt-1">UM/UIM Type: {policy.umuim_type}</p>
-                )}
-                {policy.we_are_retained_by_carrier && (
-                  <p className="text-sm text-sunflower-green mt-1 font-medium">Retained by: Yes</p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

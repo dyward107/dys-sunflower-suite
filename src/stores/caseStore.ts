@@ -1,10 +1,13 @@
-// CASE STORE - MODULE A PHASE 1A
-// Dy's Sunflower Suite v4.0
+// CASE STORE - MODULE A (PHASES 1A & 1B)
+// Dy's Sunflower Suite v5.0
 // Zustand store for case management with localStorage persistence
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Case, CaseInput, CaseFilters, Party, PartyInput, Policy, PolicyInput } from '../types/ModuleA';
+import type { 
+  Case, CaseInput, CaseFilters, Party, PartyInput, Policy, PolicyInput,
+  Contact, ContactInput, ContactFilters, CaseContact, CaseContactInput 
+} from '../types/ModuleA';
 
 // Simple IPC helper - sql.js is pure JavaScript, no native bindings needed
 // No retry logic required since sql.js initialization is async and doesn't have timing dependencies
@@ -22,6 +25,8 @@ interface CaseStore {
   selectedCase: Case | null;
   parties: Party[];
   policies: Policy[];
+  contacts: Contact[];
+  caseContacts: CaseContact[];
   isLoading: boolean;
   error: string | null;
 
@@ -45,6 +50,19 @@ interface CaseStore {
   updatePolicy: (id: number, updates: Partial<PolicyInput>) => Promise<void>;
   deletePolicy: (id: number) => Promise<void>;
 
+  // Contact Actions (Phase 1B)
+  createContact: (contactData: ContactInput) => Promise<number>;
+  loadContacts: (filters?: ContactFilters) => Promise<void>;
+  updateContact: (id: number, updates: Partial<ContactInput>) => Promise<void>;
+  deleteContact: (id: number) => Promise<void>;
+  searchContacts: (query: string) => Promise<void>;
+
+  // Case-Contact Relationship Actions (Phase 1B)
+  addContactToCase: (caseContactData: CaseContactInput) => Promise<number>;
+  loadContactsForCase: (caseId: number) => Promise<void>;
+  updateCaseContact: (id: number, updates: Partial<CaseContactInput>) => Promise<void>;
+  removeCaseContactRelationship: (id: number) => Promise<void>;
+
   // Utility Actions
   deleteCase: (id: number) => Promise<void>;
   generateCaseDisplayName: (caseId: number) => Promise<string>;
@@ -60,6 +78,8 @@ export const useCaseStore = create<CaseStore>()(
       selectedCase: null,
       parties: [],
       policies: [],
+      contacts: [],
+      caseContacts: [],
       isLoading: false,
       error: null,
 
@@ -96,6 +116,7 @@ export const useCaseStore = create<CaseStore>()(
             set({ selectedCase: caseData });
             await get().loadPartiesForCase(caseId);
             await get().loadPoliciesForCase(caseId);
+            await get().loadContactsForCase(caseId);
           }
           set({ isLoading: false });
         } catch (error: any) {
@@ -128,7 +149,7 @@ export const useCaseStore = create<CaseStore>()(
       },
 
       clearSelectedCase: () => {
-        set({ selectedCase: null, parties: [], policies: [] });
+        set({ selectedCase: null, parties: [], policies: [], caseContacts: [] });
       },
 
       // Party Actions
@@ -222,6 +243,119 @@ export const useCaseStore = create<CaseStore>()(
           await callIPC(() => window.electron.db.deletePolicy(id));
           if (get().selectedCase) {
             await get().loadPoliciesForCase(get().selectedCase!.id);
+          }
+          set({ isLoading: false });
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+        }
+      },
+
+      // Contact Actions (Phase 1B)
+      createContact: async (contactData: ContactInput) => {
+        set({ isLoading: true, error: null });
+        try {
+          const id = await callIPC(() => window.electron.db.createContact(contactData));
+          await get().loadContacts();
+          set({ isLoading: false });
+          return id;
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+          throw error;
+        }
+      },
+
+      loadContacts: async (filters?: ContactFilters) => {
+        set({ isLoading: true, error: null });
+        try {
+          const contacts = await callIPC(() => window.electron.db.getContacts(filters));
+          set({ contacts, isLoading: false });
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+        }
+      },
+
+      updateContact: async (id: number, updates: Partial<ContactInput>) => {
+        set({ isLoading: true, error: null });
+        try {
+          await callIPC(() => window.electron.db.updateContact(id, updates));
+          await get().loadContacts();
+          // Refresh case contacts if a case is selected and contact is linked to it
+          if (get().selectedCase) {
+            await get().loadContactsForCase(get().selectedCase!.id);
+          }
+          set({ isLoading: false });
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+        }
+      },
+
+      deleteContact: async (id: number) => {
+        set({ isLoading: true, error: null });
+        try {
+          await callIPC(() => window.electron.db.deleteContact(id));
+          await get().loadContacts();
+          // Refresh case contacts if a case is selected
+          if (get().selectedCase) {
+            await get().loadContactsForCase(get().selectedCase!.id);
+          }
+          set({ isLoading: false });
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+        }
+      },
+
+      searchContacts: async (query: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const contacts = await callIPC(() => window.electron.db.searchContacts(query));
+          set({ contacts, isLoading: false });
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+        }
+      },
+
+      // Case-Contact Relationship Actions (Phase 1B)
+      addContactToCase: async (caseContactData: CaseContactInput) => {
+        set({ isLoading: true, error: null });
+        try {
+          const id = await callIPC(() => window.electron.db.addContactToCase(caseContactData));
+          await get().loadContactsForCase(caseContactData.case_id);
+          set({ isLoading: false });
+          return id;
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+          throw error;
+        }
+      },
+
+      loadContactsForCase: async (caseId: number) => {
+        try {
+          const caseContacts = await callIPC(() => window.electron.db.getCaseContacts(caseId));
+          set({ caseContacts });
+        } catch (error: any) {
+          set({ error: error.message });
+        }
+      },
+
+      updateCaseContact: async (id: number, updates: Partial<CaseContactInput>) => {
+        set({ isLoading: true, error: null });
+        try {
+          await callIPC(() => window.electron.db.updateCaseContact(id, updates));
+          if (get().selectedCase) {
+            await get().loadContactsForCase(get().selectedCase!.id);
+          }
+          set({ isLoading: false });
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+        }
+      },
+
+      removeCaseContactRelationship: async (id: number) => {
+        set({ isLoading: true, error: null });
+        try {
+          await callIPC(() => window.electron.db.removeCaseContactRelationship(id));
+          if (get().selectedCase) {
+            await get().loadContactsForCase(get().selectedCase!.id);
           }
           set({ isLoading: false });
         } catch (error: any) {

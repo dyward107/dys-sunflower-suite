@@ -212,6 +212,111 @@ ipcMain.handle('db:deletePolicy', async (event, id) => {
 });
 
 // ============================================================================
+// IPC HANDLERS - MODULE A: CONTACTS (PHASE 1B)
+// ============================================================================
+
+// Global Contacts
+ipcMain.handle('db:createContact', async (event, contactData) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const id = await dbService.createContact(contactData);
+    return id;
+  } catch (error: any) {
+    console.error('Error creating contact:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getContacts', async (event, filters) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const contacts = await dbService.getContacts(filters);
+    return contacts;
+  } catch (error: any) {
+    console.error('Error getting contacts:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:updateContact', async (event, id, updates) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.updateContact(id, updates);
+    return success;
+  } catch (error: any) {
+    console.error('Error updating contact:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:deleteContact', async (event, id) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.deleteContact(id);
+    return success;
+  } catch (error: any) {
+    console.error('Error deleting contact:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:searchContacts', async (event, query) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const contacts = await dbService.searchContacts(query);
+    return contacts;
+  } catch (error: any) {
+    console.error('Error searching contacts:', error);
+    throw error;
+  }
+});
+
+// Case-Contact Relationships
+ipcMain.handle('db:addContactToCase', async (event, caseContactData) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const id = await dbService.addContactToCase(caseContactData);
+    return id;
+  } catch (error: any) {
+    console.error('Error adding contact to case:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getCaseContacts', async (event, caseId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const caseContacts = await dbService.getCaseContacts(caseId);
+    return caseContacts;
+  } catch (error: any) {
+    console.error('Error getting case contacts:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:updateCaseContact', async (event, id, updates) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.updateCaseContact(id, updates);
+    return success;
+  } catch (error: any) {
+    console.error('Error updating case contact:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:removeCaseContactRelationship', async (event, id) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.removeCaseContactRelationship(id);
+    return success;
+  } catch (error: any) {
+    console.error('Error removing case contact relationship:', error);
+    throw error;
+  }
+});
+
+// ============================================================================
 // IPC HANDLERS - MODULE A: UTILITY
 // ============================================================================
 

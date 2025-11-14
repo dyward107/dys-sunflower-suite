@@ -77,7 +77,72 @@ CREATE TABLE IF NOT EXISTS case_policies (
 
 CREATE INDEX IF NOT EXISTS idx_case_policies_case_id ON case_policies(case_id);
 CREATE INDEX IF NOT EXISTS idx_case_policies_type ON case_policies(policy_type);
+
+-- ============================================================================
+-- MODULE A PHASE 1B: CONTACT MANAGEMENT
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS global_contacts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  organization TEXT,
+  title TEXT,
+  phone_primary TEXT,
+  phone_secondary TEXT,
+  email_primary TEXT,
+  email_secondary TEXT,
+  address TEXT,
+  preferred_contact TEXT CHECK(preferred_contact IN ('email', 'phone', 'mail', 'text')),
+  best_times TEXT,
+  do_not_contact INTEGER DEFAULT 0,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_global_contacts_name ON global_contacts(name);
+CREATE INDEX IF NOT EXISTS idx_global_contacts_organization ON global_contacts(organization);
+CREATE INDEX IF NOT EXISTS idx_global_contacts_email ON global_contacts(email_primary);
+
+CREATE TABLE IF NOT EXISTS case_contacts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_id INTEGER NOT NULL,
+  contact_id INTEGER NOT NULL,
+  contact_type TEXT NOT NULL CHECK(contact_type IN (
+    'adjuster', 'plaintiff_counsel', 'defense_counsel', 'expert', 
+    'medical_provider', 'witness', 'court_personnel', 'other'
+  )),
+  role TEXT NOT NULL CHECK(
+    (contact_type = 'adjuster' AND role IN ('primary', 'secondary')) OR
+    (contact_type = 'plaintiff_counsel' AND role IN ('primary', 'secondary')) OR
+    (contact_type = 'defense_counsel' AND role IN ('lead', 'co_counsel', 'co_defendant_counsel')) OR
+    (contact_type = 'expert' AND role IN ('retained', 'consulting')) OR
+    (contact_type = 'medical_provider' AND role IN ('treating_physician', 'facility', 'records_custodian')) OR
+    (contact_type = 'witness' AND role IN ('fact', 'expert')) OR
+    (contact_type = 'court_personnel' AND role IN ('judge', 'clerk', 'staff_attorney')) OR
+    (contact_type = 'other' AND role IS NOT NULL)
+  ),
+  is_primary INTEGER DEFAULT 0,
+  relationship_start_date DATE,
+  relationship_end_date DATE,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
+  FOREIGN KEY (contact_id) REFERENCES global_contacts(id) ON DELETE CASCADE,
+  UNIQUE(case_id, contact_id, contact_type, role)
+);
+
+CREATE INDEX IF NOT EXISTS idx_case_contacts_case_id ON case_contacts(case_id);
+CREATE INDEX IF NOT EXISTS idx_case_contacts_contact_id ON case_contacts(contact_id);
+CREATE INDEX IF NOT EXISTS idx_case_contacts_type ON case_contacts(contact_type);
+CREATE INDEX IF NOT EXISTS idx_case_contacts_role ON case_contacts(role);
+CREATE INDEX IF NOT EXISTS idx_case_contacts_primary ON case_contacts(is_primary);
 `;
+
+// ============================================================================
+// TYPE DEFINITIONS (Phase 1A & 1B)
+// ============================================================================
 
 interface CaseInput {
   case_name: string;
@@ -136,6 +201,89 @@ interface PolicyInput {
   we_are_retained_by_carrier?: boolean;
   umuim_type?: 'Add-on' | 'Set-off';
   notes?: string;
+}
+
+// Phase 1B Contact Interfaces
+type ContactType = 'adjuster' | 'plaintiff_counsel' | 'defense_counsel' | 'expert' | 'medical_provider' | 'witness' | 'court_personnel' | 'other';
+
+type ContactRole = 
+  | 'primary' | 'secondary' // adjuster
+  | 'primary' | 'secondary' // plaintiff_counsel  
+  | 'lead' | 'co_counsel' | 'co_defendant_counsel' // defense_counsel
+  | 'retained' | 'consulting' // expert
+  | 'treating_physician' | 'facility' | 'records_custodian' // medical_provider
+  | 'fact' | 'expert' // witness
+  | 'judge' | 'clerk' | 'staff_attorney' // court_personnel
+  | string; // other (custom role)
+
+type PreferredContact = 'email' | 'phone' | 'mail' | 'text';
+
+interface Contact {
+  id: number;
+  name: string;
+  organization: string | null;
+  title: string | null;
+  phone_primary: string | null;
+  phone_secondary: string | null;
+  email_primary: string | null;
+  email_secondary: string | null;
+  address: string | null;
+  preferred_contact: PreferredContact | null;
+  best_times: string | null;
+  do_not_contact: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ContactInput {
+  name: string;
+  organization?: string;
+  title?: string;
+  phone_primary?: string;
+  phone_secondary?: string;
+  email_primary?: string;
+  email_secondary?: string;
+  address?: string;
+  preferred_contact?: PreferredContact;
+  best_times?: string;
+  do_not_contact?: boolean;
+  notes?: string;
+}
+
+interface CaseContact {
+  id: number;
+  case_id: number;
+  contact_id: number;
+  contact_type: ContactType;
+  role: ContactRole;
+  is_primary: boolean;
+  relationship_start_date: string | null;
+  relationship_end_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  
+  // Joined contact information (populated by query)
+  contact?: Contact;
+}
+
+interface CaseContactInput {
+  case_id: number;
+  contact_id: number;
+  contact_type: ContactType;
+  role: ContactRole;
+  is_primary?: boolean;
+  relationship_start_date?: string;
+  relationship_end_date?: string;
+  notes?: string;
+}
+
+interface ContactFilters {
+  name?: string;
+  organization?: string;
+  contact_type?: ContactType;
+  preferred_contact?: PreferredContact;
 }
 
 export class DatabaseService {
@@ -576,6 +724,289 @@ export class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     this.db.run('DELETE FROM case_policies WHERE id = ?', [id]);
+    this.save();
+    return true;
+  }
+
+  // ============================================================================
+  // CONTACT MANAGEMENT METHODS (PHASE 1B)
+  // ============================================================================
+
+  // Global Contacts
+  async createContact(contactData: ContactInput): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const query = `
+      INSERT INTO global_contacts (
+        name, organization, title, phone_primary, phone_secondary,
+        email_primary, email_secondary, address, preferred_contact,
+        best_times, do_not_contact, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    this.db.run(query, [
+      contactData.name,
+      contactData.organization || null,
+      contactData.title || null,
+      contactData.phone_primary || null,
+      contactData.phone_secondary || null,
+      contactData.email_primary || null,
+      contactData.email_secondary || null,
+      contactData.address || null,
+      contactData.preferred_contact || null,
+      contactData.best_times || null,
+      contactData.do_not_contact ? 1 : 0,
+      contactData.notes || null
+    ]);
+
+    const result = this.db.exec('SELECT last_insert_rowid() as id');
+    const id = result[0].values[0][0] as number;
+
+    this.save();
+    return id;
+  }
+
+  async getContacts(filters?: ContactFilters): Promise<Contact[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    let query = 'SELECT * FROM global_contacts WHERE 1=1';
+    const params: any[] = [];
+
+    if (filters?.name) {
+      query += ' AND name LIKE ?';
+      params.push(`%${filters.name}%`);
+    }
+
+    if (filters?.organization) {
+      query += ' AND organization LIKE ?';
+      params.push(`%${filters.organization}%`);
+    }
+
+    if (filters?.preferred_contact) {
+      query += ' AND preferred_contact = ?';
+      params.push(filters.preferred_contact);
+    }
+
+    query += ' ORDER BY name';
+
+    const result = this.db.exec(query, params);
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+        // Convert boolean fields
+        if (col === 'do_not_contact') {
+          obj[col] = row[i] === 1;
+        }
+      });
+      return obj as Contact;
+    });
+  }
+
+  async updateContact(id: number, updates: Partial<ContactInput>): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    Object.entries(updates).forEach(([key, value]) => {
+      fields.push(`${key} = ?`);
+      if (key === 'do_not_contact') {
+        values.push(value ? 1 : 0);
+      } else {
+        values.push(value === undefined ? null : value);
+      }
+    });
+
+    if (fields.length === 0) return false;
+
+    // Add updated_at timestamp
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
+
+    const query = `UPDATE global_contacts SET ${fields.join(', ')} WHERE id = ?`;
+    this.db.run(query, values);
+
+    this.save();
+    return true;
+  }
+
+  async deleteContact(id: number): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    // Check if contact is linked to any cases
+    const linkCheck = this.db.exec('SELECT COUNT(*) as count FROM case_contacts WHERE contact_id = ?', [id]);
+    const linkCount = linkCheck[0].values[0][0] as number;
+
+    if (linkCount > 0) {
+      throw new Error('Cannot delete contact: still linked to cases');
+    }
+
+    this.db.run('DELETE FROM global_contacts WHERE id = ?', [id]);
+    this.save();
+    return true;
+  }
+
+  async searchContacts(query: string): Promise<Contact[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const searchTerm = `%${query}%`;
+    const sql = `
+      SELECT * FROM global_contacts
+      WHERE name LIKE ? OR organization LIKE ? OR email_primary LIKE ?
+      ORDER BY name
+    `;
+
+    const result = this.db.exec(sql, [searchTerm, searchTerm, searchTerm]);
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+        if (col === 'do_not_contact') {
+          obj[col] = row[i] === 1;
+        }
+      });
+      return obj as Contact;
+    });
+  }
+
+  // Case-Contact Relationships
+  async addContactToCase(caseContactData: CaseContactInput): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const query = `
+      INSERT INTO case_contacts (
+        case_id, contact_id, contact_type, role, is_primary,
+        relationship_start_date, relationship_end_date, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    this.db.run(query, [
+      caseContactData.case_id,
+      caseContactData.contact_id,
+      caseContactData.contact_type,
+      caseContactData.role,
+      caseContactData.is_primary ? 1 : 0,
+      caseContactData.relationship_start_date || null,
+      caseContactData.relationship_end_date || null,
+      caseContactData.notes || null
+    ]);
+
+    const result = this.db.exec('SELECT last_insert_rowid() as id');
+    const id = result[0].values[0][0] as number;
+
+    this.save();
+    return id;
+  }
+
+  async getCaseContacts(caseId: number): Promise<CaseContact[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const query = `
+      SELECT 
+        cc.*,
+        gc.name, gc.organization, gc.title,
+        gc.phone_primary, gc.phone_secondary,
+        gc.email_primary, gc.email_secondary,
+        gc.address, gc.preferred_contact, gc.best_times,
+        gc.do_not_contact, gc.notes as contact_notes
+      FROM case_contacts cc
+      JOIN global_contacts gc ON cc.contact_id = gc.id
+      WHERE cc.case_id = ?
+      ORDER BY cc.contact_type, cc.role, gc.name
+    `;
+
+    const result = this.db.exec(query, [caseId]);
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+        // Convert boolean fields
+        if (col === 'is_primary' || col === 'do_not_contact') {
+          obj[col] = row[i] === 1;
+        }
+      });
+
+      // Structure the joined contact data
+      const caseContact: CaseContact = {
+        id: obj.id,
+        case_id: obj.case_id,
+        contact_id: obj.contact_id,
+        contact_type: obj.contact_type,
+        role: obj.role,
+        is_primary: obj.is_primary,
+        relationship_start_date: obj.relationship_start_date,
+        relationship_end_date: obj.relationship_end_date,
+        notes: obj.notes,
+        created_at: obj.created_at,
+        updated_at: obj.updated_at,
+        contact: {
+          id: obj.contact_id,
+          name: obj.name,
+          organization: obj.organization,
+          title: obj.title,
+          phone_primary: obj.phone_primary,
+          phone_secondary: obj.phone_secondary,
+          email_primary: obj.email_primary,
+          email_secondary: obj.email_secondary,
+          address: obj.address,
+          preferred_contact: obj.preferred_contact,
+          best_times: obj.best_times,
+          do_not_contact: obj.do_not_contact,
+          notes: obj.contact_notes,
+          created_at: obj.created_at,
+          updated_at: obj.updated_at
+        }
+      };
+
+      return caseContact;
+    });
+  }
+
+  async updateCaseContact(id: number, updates: Partial<CaseContactInput>): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    Object.entries(updates).forEach(([key, value]) => {
+      fields.push(`${key} = ?`);
+      if (key === 'is_primary') {
+        values.push(value ? 1 : 0);
+      } else {
+        values.push(value === undefined ? null : value);
+      }
+    });
+
+    if (fields.length === 0) return false;
+
+    // Add updated_at timestamp
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
+
+    const query = `UPDATE case_contacts SET ${fields.join(', ')} WHERE id = ?`;
+    this.db.run(query, values);
+
+    this.save();
+    return true;
+  }
+
+  async removeCaseContactRelationship(id: number): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    this.db.run('DELETE FROM case_contacts WHERE id = ?', [id]);
     this.save();
     return true;
   }

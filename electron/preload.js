@@ -27,6 +27,19 @@ contextBridge.exposeInMainWorld('electron', {
     updatePolicy: (id, updates) => ipcRenderer.invoke('db:updatePolicy', id, updates),
     deletePolicy: (id) => ipcRenderer.invoke('db:deletePolicy', id),
 
+    // Contacts (Phase 1B)
+    createContact: (contactData) => ipcRenderer.invoke('db:createContact', contactData),
+    getContacts: (filters) => ipcRenderer.invoke('db:getContacts', filters),
+    updateContact: (id, updates) => ipcRenderer.invoke('db:updateContact', id, updates),
+    deleteContact: (id) => ipcRenderer.invoke('db:deleteContact', id),
+    searchContacts: (query) => ipcRenderer.invoke('db:searchContacts', query),
+
+    // Case-Contact Relationships (Phase 1B)
+    addContactToCase: (caseContactData) => ipcRenderer.invoke('db:addContactToCase', caseContactData),
+    getCaseContacts: (caseId) => ipcRenderer.invoke('db:getCaseContacts', caseId),
+    updateCaseContact: (id, updates) => ipcRenderer.invoke('db:updateCaseContact', id, updates),
+    removeCaseContactRelationship: (id) => ipcRenderer.invoke('db:removeCaseContactRelationship', id),
+
     // Utility
     deleteCase: (id) => ipcRenderer.invoke('db:deleteCase', id),
     generateCaseDisplayName: (caseId) => ipcRenderer.invoke('db:generateCaseDisplayName', caseId)

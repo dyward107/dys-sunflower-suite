@@ -1,17 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Sirivennela&family=Quicksand:wght@300;400;500;600;700&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
 
 /* Sunflower Suite Theme - Base Styles */
 body {
-  font-family: 'Quicksand', sans-serif;
+  font-family: 'Quicksand', sans-serif;  /* Everything uses Quicksand by default */
   background: linear-gradient(to bottom right, #FFF9C4, #FFECB3);
   color: #633112;
   margin: 0;
   padding: 0;
   min-height: 100vh;
+}
+
+/* Brand font (Sirivennela) for app title only */
+.font-brand {
+  font-family: 'Sirivennela', serif !important;
 }
 
 #root {
