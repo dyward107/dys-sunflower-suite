@@ -228,3 +228,54 @@ CREATE INDEX IF NOT EXISTS idx_case_contacts_contact_id ON case_contacts(contact
 CREATE INDEX IF NOT EXISTS idx_case_contacts_type ON case_contacts(contact_type);
 CREATE INDEX IF NOT EXISTS idx_case_contacts_role ON case_contacts(role);
 CREATE INDEX IF NOT EXISTS idx_case_contacts_primary ON case_contacts(is_primary);
+
+-- ============================================================================
+-- MODULE A PHASE 1C: CASE DISPOSITION
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS case_dispositions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_id INTEGER NOT NULL,
+  
+  -- Disposition details
+  disposition_type TEXT CHECK(disposition_type IN (
+    'settlement', 'verdict', 'dismissal_with_prejudice', 
+    'dismissal_without_prejudice', 'other'
+  )),
+  disposition_date DATE NOT NULL,
+  settlement_amount DECIMAL(12,2),
+  other_disposition_type TEXT, -- For custom types when type='other'
+  
+  -- Settlement workflow tracking
+  settlement_agreement_date DATE,
+  release_drafted INTEGER DEFAULT 0,
+  release_executed INTEGER DEFAULT 0,
+  dismissal_filed INTEGER DEFAULT 0,
+  dismissal_date DATE,
+  
+  -- Documents
+  settlement_agreement_path TEXT,
+  release_document_path TEXT,
+  dismissal_document_path TEXT,
+  
+  -- Refiling potential (auto-enabled for dismissal without prejudice)
+  potential_refiling INTEGER DEFAULT 0,
+  refiling_deadline DATE,
+  refiling_days_notice INTEGER DEFAULT 90,
+  refiling_reminder_set INTEGER DEFAULT 0,
+  
+  -- Notes
+  disposition_notes TEXT,
+  
+  -- Metadata
+  created_by TEXT DEFAULT 'system',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_dispositions_case_id ON case_dispositions(case_id);
+CREATE INDEX IF NOT EXISTS idx_dispositions_type ON case_dispositions(disposition_type);
+CREATE INDEX IF NOT EXISTS idx_dispositions_date ON case_dispositions(disposition_date);
+CREATE INDEX IF NOT EXISTS idx_dispositions_refiling ON case_dispositions(potential_refiling);

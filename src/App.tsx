@@ -12,6 +12,8 @@ import { CaseDetail } from './components/moduleA/CaseDetail';
 import { CaseForm } from './components/moduleA/CaseForm';
 import { ContactManager } from './components/moduleA/ContactManager';
 import { CaseContactManager } from './components/moduleA/CaseContactManager';
+import { PartiesTab } from './components/moduleA/PartiesTab';
+import { PoliciesTab } from './components/moduleA/PoliciesTab';
 import { CaseListLayout } from './components/layout/CaseListLayout';
 
 // Simple error boundary for debugging

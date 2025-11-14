@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCaseStore } from '../../stores/caseStore';
-import type { CaseInput } from '../../types/ModuleA';
+import type { CaseInput, PartyInput, Party } from '../../types/ModuleA';
 import { LEAD_ATTORNEYS, CASE_STATUSES, CASE_TYPES, CASE_SUBTYPES } from '../../types/ModuleA';
 import { AddPartyModal } from './AddPartyModal';
 import { AddPolicyModal } from './AddPolicyModal';
@@ -56,6 +56,9 @@ export const CaseForm: React.FC = () => {
     discovery_deadline_notes: '',
     notes: '',
   });
+
+  // Local party queue for new cases (before first save)
+  const [localParties, setLocalParties] = useState<PartyInput[]>([]);
 
   useEffect(() => {
     if (isEditMode && caseId) {
@@ -134,7 +137,14 @@ export const CaseForm: React.FC = () => {
         navigate(`/cases/${caseId}`);
       } else {
         const id = await createCase(formData);
-        // Generate display name after creation
+        
+        // Bulk-insert local parties (if any)
+        for (const partyData of localParties) {
+          const partyWithCaseId = { ...partyData, case_id: id };
+          await window.electron.db.addCaseParty(id, partyWithCaseId);
+        }
+        
+        // Generate display name after creation (and after parties are added)
         const displayName = await generateCaseDisplayName(id);
         await updateCase(id, { case_name: displayName });
         if (doBackup) {
@@ -165,14 +175,53 @@ export const CaseForm: React.FC = () => {
   const [showAddPartyModal, setShowAddPartyModal] = useState(false);
   const [showAddPolicyModal, setShowAddPolicyModal] = useState(false);
   const [partyModalType, setPartyModalType] = useState<'plaintiff' | 'defendant'>('defendant');
+  const [editingParty, setEditingParty] = useState<Party | null>(null);
+  const [editingLocalPartyIndex, setEditingLocalPartyIndex] = useState<number | null>(null);
+
+  // Local party management (for new cases)
+  const handleAddLocalParty = (partyData: PartyInput) => {
+    setLocalParties([...localParties, partyData]);
+  };
+
+  const handleUpdateLocalParty = (index: number, partyData: PartyInput) => {
+    const updated = [...localParties];
+    updated[index] = partyData;
+    setLocalParties(updated);
+  };
+
+  const handleDeleteLocalParty = (index: number) => {
+    if (confirm('Are you sure you want to remove this party?')) {
+      setLocalParties(localParties.filter((_, i) => i !== index));
+    }
+  };
 
   const handleAddParty = (type: 'plaintiff' | 'defendant') => {
     setPartyModalType(type);
+    setEditingParty(null);
+    setEditingLocalPartyIndex(null);
+    setShowAddPartyModal(true);
+  };
+
+  const handleEditParty = (party: Party) => {
+    setEditingParty(party);
+    setPartyModalType(party.party_type);
+    setShowAddPartyModal(true);
+  };
+
+  const handleEditLocalParty = (index: number) => {
+    setEditingLocalPartyIndex(index);
+    setEditingParty(null);
     setShowAddPartyModal(true);
   };
 
   const handleAddPolicy = () => {
     setShowAddPolicyModal(true);
+  };
+
+  const handleClosePartyModal = () => {
+    setShowAddPartyModal(false);
+    setEditingParty(null);
+    setEditingLocalPartyIndex(null);
   };
 
   const handleDeleteParty = async (partyId: number) => {
@@ -424,12 +473,13 @@ export const CaseForm: React.FC = () => {
             </button>
           </div>
 
-          {/* All Parties List (Edit Mode Only) */}
-          {isEditMode && caseId && parties.length > 0 && (
+          {/* All Parties List */}
+          {((isEditMode && parties.length > 0) || (!isEditMode && localParties.length > 0)) && (
             <div className="mt-4 p-4 bg-white rounded-md border border-sunflower-taupe">
               <h3 className="text-lg font-medium text-sunflower-brown mb-3">All Parties</h3>
               <div className="space-y-2">
-                {parties.map((party) => (
+                {/* Edit mode: show database parties */}
+                {isEditMode && parties.map((party) => (
                   <div
                     key={party.id}
                     className="flex items-center justify-between p-3 bg-sunflower-cream rounded border border-sunflower-taupe-light"
@@ -470,13 +520,83 @@ export const CaseForm: React.FC = () => {
                         </p>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteParty(party.id)}
-                      className="ml-4 px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-sm"
-                    >
-                      Remove
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEditParty(party)}
+                        className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteParty(party.id)}
+                        className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* New case mode: show local parties */}
+                {!isEditMode && localParties.map((party, index) => (
+                  <div
+                    key={`local-${index}`}
+                    className="flex items-center justify-between p-3 bg-sunflower-cream rounded border border-sunflower-taupe-light"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-sunflower-brown">
+                          {party.party_name}
+                        </span>
+                        <span className="px-2 py-1 bg-sunflower-taupe text-sunflower-brown text-xs rounded">
+                          {party.party_type === 'plaintiff' ? 'Plaintiff' : 'Defendant'}
+                        </span>
+                        {party.is_primary && (
+                          <span className="px-2 py-1 bg-sunflower-gold text-white text-xs rounded">
+                            Primary
+                          </span>
+                        )}
+                        {party.is_corporate && (
+                          <span className="px-2 py-1 bg-sunflower-taupe text-sunflower-brown text-xs rounded">
+                            Corporate
+                          </span>
+                        )}
+                        {party.is_insured && (
+                          <span className="px-2 py-1 bg-sunflower-green text-sunflower-brown text-xs rounded">
+                            Insured
+                          </span>
+                        )}
+                        {party.monitor_for_service && (
+                          <span className="px-2 py-1 bg-sunflower-gold text-white text-xs rounded">
+                            Monitor Service
+                          </span>
+                        )}
+                      </div>
+                      {party.service_date && (
+                        <p className="text-xs text-sunflower-brown mt-1">
+                          Served: {new Date(party.service_date).toLocaleDateString()}
+                          {party.answer_filed_date && ` | Answer Filed: ${new Date(party.answer_filed_date).toLocaleDateString()}`}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEditLocalParty(index)}
+                        className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteLocalParty(index)}
+                        className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -777,20 +897,33 @@ export const CaseForm: React.FC = () => {
       </form>
 
       {/* Modals */}
+      <AddPartyModal
+        isOpen={showAddPartyModal}
+        onClose={handleClosePartyModal}
+        caseId={isEditMode && caseId ? parseInt(caseId) : null}
+        party={editingParty || undefined}
+        localParty={editingLocalPartyIndex !== null ? localParties[editingLocalPartyIndex] : undefined}
+        draftType={partyModalType}
+        onLocalCreate={handleAddLocalParty}
+        onLocalUpdate={(partyData) => {
+          if (editingLocalPartyIndex !== null) {
+            handleUpdateLocalParty(editingLocalPartyIndex, partyData);
+          }
+        }}
+        onSuccess={() => {
+          handleClosePartyModal();
+          if (isEditMode && caseId) {
+            loadPartiesForCase(parseInt(caseId));
+          }
+        }}
+      />
+      
       {isEditMode && caseId && (
-        <>
-          <AddPartyModal
-            isOpen={showAddPartyModal}
-            onClose={() => setShowAddPartyModal(false)}
-            caseId={parseInt(caseId)}
-            partyType={partyModalType}
-          />
-          <AddPolicyModal
-            isOpen={showAddPolicyModal}
-            onClose={() => setShowAddPolicyModal(false)}
-            caseId={parseInt(caseId)}
-          />
-        </>
+        <AddPolicyModal
+          isOpen={showAddPolicyModal}
+          onClose={() => setShowAddPolicyModal(false)}
+          caseId={parseInt(caseId)}
+        />
       )}
     </div>
   );

@@ -1,9 +1,10 @@
 // ELECTRON API TYPE DEFINITIONS
-// Dy's Sunflower Suite v5.0 - Phases 1A & 1B
+// Dy's Sunflower Suite v5.0 - Phases 1A, 1B & 1C
 
 import { 
   Case, CaseInput, CaseFilters, Party, PartyInput, Policy, PolicyInput,
-  Contact, ContactInput, ContactFilters, CaseContact, CaseContactInput
+  Contact, ContactInput, ContactFilters, CaseContact, CaseContactInput,
+  Disposition, DispositionInput
 } from './ModuleA';
 
 export interface ElectronAPI {
@@ -34,11 +35,43 @@ export interface ElectronAPI {
     deleteContact: (id: number) => Promise<boolean>;
     searchContacts: (query: string) => Promise<Contact[]>;
 
-    // Case-Contact Relationships (Phase 1B)
-    addContactToCase: (caseContactData: CaseContactInput) => Promise<number>;
-    getCaseContacts: (caseId: number) => Promise<CaseContact[]>;
-    updateCaseContact: (id: number, updates: Partial<CaseContactInput>) => Promise<boolean>;
-    removeCaseContactRelationship: (id: number) => Promise<boolean>;
+  // Case-Contact Relationships (Phase 1B)
+  addContactToCase: (caseContactData: CaseContactInput) => Promise<number>;
+  getCaseContacts: (caseId: number) => Promise<CaseContact[]>;
+  updateCaseContact: (id: number, updates: Partial<CaseContactInput>) => Promise<boolean>;
+  removeCaseContactRelationship: (id: number) => Promise<boolean>;
+
+  // Disposition Management (Phase 1C)
+  createDisposition: (dispositionData: DispositionInput) => Promise<number>;
+  getDisposition: (caseId: number) => Promise<Disposition | null>;
+  updateDisposition: (id: number, updates: Partial<DispositionInput>) => Promise<boolean>;
+  deleteDisposition: (id: number) => Promise<boolean>;
+  getCaseDispositions: (caseId: number) => Promise<Disposition[]>;
+
+  // Document Management (Phase 1D)
+  createDocument: (documentData: any) => Promise<number>;
+  getDocumentById: (id: number) => Promise<any | null>;
+  getDocumentsForCase: (caseId: number) => Promise<any[]>;
+  updateDocument: (id: number, updates: any) => Promise<boolean>;
+  deleteDocument: (id: number) => Promise<boolean>;
+
+  // Party-Document Linking (Phase 1D)
+  linkDocumentToParty: (partyId: number, documentId: number, relevanceNotes?: string, isPrimarySubject?: boolean) => Promise<boolean>;
+  unlinkDocumentFromParty: (partyId: number, documentId: number) => Promise<boolean>;
+  getDocumentsForParty: (partyId: number) => Promise<any[]>;
+  getPartiesForDocument: (documentId: number) => Promise<any[]>;
+
+  // Policy-Document Linking (Phase 1D)
+  linkDocumentToPolicy: (policyId: number, documentId: number, policyDocType?: string) => Promise<boolean>;
+  unlinkDocumentFromPolicy: (policyId: number, documentId: number) => Promise<boolean>;
+  getDocumentsForPolicy: (policyId: number) => Promise<any[]>;
+
+  // Enhanced Party Methods (Phase 1D)
+  updatePartyExtended: (id: number, updates: any) => Promise<boolean>;
+  getPartyWithDocuments: (partyId: number) => Promise<any | null>;
+
+  // Helper Methods (Phase 1D)
+  getDocumentStats: (caseId: number) => Promise<any>;
 
     // Utility
     deleteCase: (id: number) => Promise<boolean>;

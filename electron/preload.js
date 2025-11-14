@@ -40,6 +40,38 @@ contextBridge.exposeInMainWorld('electron', {
     updateCaseContact: (id, updates) => ipcRenderer.invoke('db:updateCaseContact', id, updates),
     removeCaseContactRelationship: (id) => ipcRenderer.invoke('db:removeCaseContactRelationship', id),
 
+    // Disposition Management (Phase 1C)  
+    createDisposition: (dispositionData) => ipcRenderer.invoke('db:createDisposition', dispositionData),
+    getDisposition: (caseId) => ipcRenderer.invoke('db:getDisposition', caseId),
+    updateDisposition: (id, updates) => ipcRenderer.invoke('db:updateDisposition', id, updates),
+    deleteDisposition: (id) => ipcRenderer.invoke('db:deleteDisposition', id),
+    getCaseDispositions: (caseId) => ipcRenderer.invoke('db:getCaseDispositions', caseId),
+
+    // Document Management (Phase 1D)
+    createDocument: (documentData) => ipcRenderer.invoke('db:createDocument', documentData),
+    getDocumentById: (id) => ipcRenderer.invoke('db:getDocumentById', id),
+    getDocumentsForCase: (caseId) => ipcRenderer.invoke('db:getDocumentsForCase', caseId),
+    updateDocument: (id, updates) => ipcRenderer.invoke('db:updateDocument', id, updates),
+    deleteDocument: (id) => ipcRenderer.invoke('db:deleteDocument', id),
+
+    // Party-Document Linking (Phase 1D)
+    linkDocumentToParty: (partyId, documentId, relevanceNotes, isPrimarySubject) => ipcRenderer.invoke('db:linkDocumentToParty', partyId, documentId, relevanceNotes, isPrimarySubject),
+    unlinkDocumentFromParty: (partyId, documentId) => ipcRenderer.invoke('db:unlinkDocumentFromParty', partyId, documentId),
+    getDocumentsForParty: (partyId) => ipcRenderer.invoke('db:getDocumentsForParty', partyId),
+    getPartiesForDocument: (documentId) => ipcRenderer.invoke('db:getPartiesForDocument', documentId),
+
+    // Policy-Document Linking (Phase 1D)
+    linkDocumentToPolicy: (policyId, documentId, policyDocType) => ipcRenderer.invoke('db:linkDocumentToPolicy', policyId, documentId, policyDocType),
+    unlinkDocumentFromPolicy: (policyId, documentId) => ipcRenderer.invoke('db:unlinkDocumentFromPolicy', policyId, documentId),
+    getDocumentsForPolicy: (policyId) => ipcRenderer.invoke('db:getDocumentsForPolicy', policyId),
+
+    // Enhanced Party Methods (Phase 1D)
+    updatePartyExtended: (id, updates) => ipcRenderer.invoke('db:updatePartyExtended', id, updates),
+    getPartyWithDocuments: (partyId) => ipcRenderer.invoke('db:getPartyWithDocuments', partyId),
+
+    // Helper Methods (Phase 1D)
+    getDocumentStats: (caseId) => ipcRenderer.invoke('db:getDocumentStats', caseId),
+
     // Utility
     deleteCase: (id) => ipcRenderer.invoke('db:deleteCase', id),
     generateCaseDisplayName: (caseId) => ipcRenderer.invoke('db:generateCaseDisplayName', caseId)

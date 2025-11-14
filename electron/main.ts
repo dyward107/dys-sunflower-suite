@@ -341,3 +341,235 @@ ipcMain.handle('db:generateCaseDisplayName', async (event, caseId) => {
     throw error;
   }
 });
+
+// ============================================================================
+// MODULE A PHASE 1C: DISPOSITION IPC HANDLERS
+// ============================================================================
+
+ipcMain.handle('db:createDisposition', async (event, dispositionData) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const id = await dbService.createDisposition(dispositionData);
+    return id;
+  } catch (error: any) {
+    console.error('Error creating disposition:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getDisposition', async (event, caseId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const disposition = await dbService.getDisposition(caseId);
+    return disposition;
+  } catch (error: any) {
+    console.error('Error getting disposition:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:updateDisposition', async (event, id, updates) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.updateDisposition(id, updates);
+    return success;
+  } catch (error: any) {
+    console.error('Error updating disposition:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:deleteDisposition', async (event, id) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.deleteDisposition(id);
+    return success;
+  } catch (error: any) {
+    console.error('Error deleting disposition:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getCaseDispositions', async (event, caseId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const dispositions = await dbService.getCaseDispositions(caseId);
+    return dispositions;
+  } catch (error: any) {
+    console.error('Error getting case dispositions:', error);
+    throw error;
+  }
+});
+
+// ============================================================================
+// MODULE A PHASE 1D: DOCUMENT MANAGEMENT IPC HANDLERS
+// ============================================================================
+
+ipcMain.handle('db:createDocument', async (event, documentData) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const id = await dbService.createDocument(documentData);
+    return id;
+  } catch (error: any) {
+    console.error('Error creating document:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getDocumentById', async (event, id) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const document = await dbService.getDocumentById(id);
+    return document;
+  } catch (error: any) {
+    console.error('Error getting document by ID:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getDocumentsForCase', async (event, caseId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const documents = await dbService.getDocumentsForCase(caseId);
+    return documents;
+  } catch (error: any) {
+    console.error('Error getting documents for case:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:updateDocument', async (event, id, updates) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.updateDocument(id, updates);
+    return success;
+  } catch (error: any) {
+    console.error('Error updating document:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:deleteDocument', async (event, id) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.deleteDocument(id);
+    return success;
+  } catch (error: any) {
+    console.error('Error deleting document:', error);
+    throw error;
+  }
+});
+
+// Party-Document Linking IPC Handlers
+ipcMain.handle('db:linkDocumentToParty', async (event, partyId, documentId, relevanceNotes, isPrimarySubject) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.linkDocumentToParty(partyId, documentId, relevanceNotes, isPrimarySubject);
+    return success;
+  } catch (error: any) {
+    console.error('Error linking document to party:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:unlinkDocumentFromParty', async (event, partyId, documentId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.unlinkDocumentFromParty(partyId, documentId);
+    return success;
+  } catch (error: any) {
+    console.error('Error unlinking document from party:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getDocumentsForParty', async (event, partyId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const documents = await dbService.getDocumentsForParty(partyId);
+    return documents;
+  } catch (error: any) {
+    console.error('Error getting documents for party:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getPartiesForDocument', async (event, documentId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const parties = await dbService.getPartiesForDocument(documentId);
+    return parties;
+  } catch (error: any) {
+    console.error('Error getting parties for document:', error);
+    throw error;
+  }
+});
+
+// Policy-Document Linking IPC Handlers
+ipcMain.handle('db:linkDocumentToPolicy', async (event, policyId, documentId, policyDocType) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.linkDocumentToPolicy(policyId, documentId, policyDocType);
+    return success;
+  } catch (error: any) {
+    console.error('Error linking document to policy:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:unlinkDocumentFromPolicy', async (event, policyId, documentId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.unlinkDocumentFromPolicy(policyId, documentId);
+    return success;
+  } catch (error: any) {
+    console.error('Error unlinking document from policy:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getDocumentsForPolicy', async (event, policyId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const documents = await dbService.getDocumentsForPolicy(policyId);
+    return documents;
+  } catch (error: any) {
+    console.error('Error getting documents for policy:', error);
+    throw error;
+  }
+});
+
+// Enhanced Party Methods IPC Handlers
+ipcMain.handle('db:updatePartyExtended', async (event, id, updates) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.updatePartyExtended(id, updates);
+    return success;
+  } catch (error: any) {
+    console.error('Error updating party (extended):', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getPartyWithDocuments', async (event, partyId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const party = await dbService.getPartyWithDocuments(partyId);
+    return party;
+  } catch (error: any) {
+    console.error('Error getting party with documents:', error);
+    throw error;
+  }
+});
+
+// Helper Methods IPC Handlers
+ipcMain.handle('db:getDocumentStats', async (event, caseId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const stats = await dbService.getDocumentStats(caseId);
+    return stats;
+  } catch (error: any) {
+    console.error('Error getting document stats:', error);
+    throw error;
+  }
+});

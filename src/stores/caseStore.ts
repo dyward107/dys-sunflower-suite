@@ -6,7 +6,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { 
   Case, CaseInput, CaseFilters, Party, PartyInput, Policy, PolicyInput,
-  Contact, ContactInput, ContactFilters, CaseContact, CaseContactInput 
+  Contact, ContactInput, ContactFilters, CaseContact, CaseContactInput,
+  Disposition, DispositionInput 
 } from '../types/ModuleA';
 
 // Simple IPC helper - sql.js is pure JavaScript, no native bindings needed
@@ -27,6 +28,7 @@ interface CaseStore {
   policies: Policy[];
   contacts: Contact[];
   caseContacts: CaseContact[];
+  disposition: Disposition | null;
   isLoading: boolean;
   error: string | null;
 
@@ -56,12 +58,19 @@ interface CaseStore {
   updateContact: (id: number, updates: Partial<ContactInput>) => Promise<void>;
   deleteContact: (id: number) => Promise<void>;
   searchContacts: (query: string) => Promise<void>;
-
+  
   // Case-Contact Relationship Actions (Phase 1B)
   addContactToCase: (caseContactData: CaseContactInput) => Promise<number>;
   loadContactsForCase: (caseId: number) => Promise<void>;
   updateCaseContact: (id: number, updates: Partial<CaseContactInput>) => Promise<void>;
   removeCaseContactRelationship: (id: number) => Promise<void>;
+
+  // Disposition Actions (Phase 1C)
+  createDisposition: (dispositionData: DispositionInput) => Promise<number>;
+  loadDisposition: (caseId: number) => Promise<void>;
+  updateDisposition: (id: number, updates: Partial<DispositionInput>) => Promise<void>;
+  deleteDisposition: (id: number) => Promise<void>;
+  clearDisposition: () => void;
 
   // Utility Actions
   deleteCase: (id: number) => Promise<void>;
@@ -80,6 +89,7 @@ export const useCaseStore = create<CaseStore>()(
       policies: [],
       contacts: [],
       caseContacts: [],
+      disposition: null,
       isLoading: false,
       error: null,
 
@@ -117,6 +127,7 @@ export const useCaseStore = create<CaseStore>()(
             await get().loadPartiesForCase(caseId);
             await get().loadPoliciesForCase(caseId);
             await get().loadContactsForCase(caseId);
+            await get().loadDisposition(caseId);
           }
           set({ isLoading: false });
         } catch (error: any) {
@@ -149,7 +160,7 @@ export const useCaseStore = create<CaseStore>()(
       },
 
       clearSelectedCase: () => {
-        set({ selectedCase: null, parties: [], policies: [], caseContacts: [] });
+        set({ selectedCase: null, parties: [], policies: [], caseContacts: [], disposition: null });
       },
 
       // Party Actions
@@ -361,6 +372,67 @@ export const useCaseStore = create<CaseStore>()(
         } catch (error: any) {
           set({ error: error.message, isLoading: false });
         }
+      },
+
+      // Disposition Actions (Phase 1C)
+      createDisposition: async (dispositionData: DispositionInput) => {
+        set({ isLoading: true, error: null });
+        try {
+          const id = await callIPC(() => window.electron.db.createDisposition(dispositionData));
+          // Reload the case to update phase/closed status
+          await get().loadCases();
+          if (get().selectedCase?.id === dispositionData.case_id) {
+            await get().selectCase(dispositionData.case_id);
+          }
+          set({ isLoading: false });
+          return id;
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+          throw error;
+        }
+      },
+
+      loadDisposition: async (caseId: number) => {
+        try {
+          const disposition = await callIPC(() => window.electron.db.getDisposition(caseId));
+          set({ disposition });
+        } catch (error: any) {
+          set({ error: error.message });
+        }
+      },
+
+      updateDisposition: async (id: number, updates: Partial<DispositionInput>) => {
+        set({ isLoading: true, error: null });
+        try {
+          await callIPC(() => window.electron.db.updateDisposition(id, updates));
+          const currentCase = get().selectedCase;
+          if (currentCase) {
+            await get().loadDisposition(currentCase.id);
+          }
+          set({ isLoading: false });
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+        }
+      },
+
+      deleteDisposition: async (id: number) => {
+        set({ isLoading: true, error: null });
+        try {
+          await callIPC(() => window.electron.db.deleteDisposition(id));
+          // Reload to update case status
+          await get().loadCases();
+          const currentCase = get().selectedCase;
+          if (currentCase) {
+            await get().selectCase(currentCase.id);
+          }
+          set({ isLoading: false });
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+        }
+      },
+
+      clearDisposition: () => {
+        set({ disposition: null });
       },
 
       // Utility Actions

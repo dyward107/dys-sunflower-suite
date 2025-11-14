@@ -340,3 +340,85 @@ export const PREFERRED_CONTACT_LABELS: Record<PreferredContact, string> = {
   mail: 'Mail',
   text: 'Text Message'
 };
+
+// ============================================================================
+// MODULE A PHASE 1C: DISPOSITION TYPES
+// ============================================================================
+
+export type DispositionType = 'settlement' | 'verdict' | 'dismissal_with_prejudice' | 'dismissal_without_prejudice' | 'other';
+
+export interface Disposition {
+  id: number;
+  case_id: number;
+  disposition_type: DispositionType;
+  disposition_date: string;
+  settlement_amount?: number;
+  other_disposition_type?: string;
+  
+  // Settlement workflow tracking
+  settlement_agreement_date?: string;
+  release_drafted: boolean;
+  release_executed: boolean;
+  dismissal_filed: boolean;
+  dismissal_date?: string;
+  
+  // Documents
+  settlement_agreement_path?: string;
+  release_document_path?: string;
+  dismissal_document_path?: string;
+  
+  // Refiling (auto-enabled for dismissal without prejudice)
+  potential_refiling: boolean;
+  refiling_deadline?: string;
+  refiling_days_notice: number;
+  refiling_reminder_set: boolean;
+  disposition_notes?: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DispositionInput {
+  case_id: number;
+  disposition_type: DispositionType;
+  disposition_date: string;
+  settlement_amount?: number;
+  other_disposition_type?: string;
+  
+  // Settlement workflow tracking
+  settlement_agreement_date?: string;
+  release_drafted?: boolean;
+  release_executed?: boolean;
+  dismissal_filed?: boolean;
+  dismissal_date?: string;
+  
+  // Documents
+  settlement_agreement_path?: string;
+  release_document_path?: string;
+  dismissal_document_path?: string;
+  
+  // Refiling
+  potential_refiling?: boolean;
+  refiling_deadline?: string;
+  refiling_days_notice?: number;
+  refiling_reminder_set?: boolean;
+  disposition_notes?: string;
+  created_by?: string;
+}
+
+// Disposition Type Constants
+export const DISPOSITION_TYPES: DispositionType[] = [
+  'settlement',
+  'verdict', 
+  'dismissal_with_prejudice',
+  'dismissal_without_prejudice',
+  'other'
+];
+
+export const DISPOSITION_TYPE_LABELS: Record<DispositionType, string> = {
+  settlement: 'Settlement',
+  verdict: 'Verdict',
+  dismissal_with_prejudice: 'Dismissal with Prejudice',
+  dismissal_without_prejudice: 'Dismissal without Prejudice',
+  other: 'Other',
+};

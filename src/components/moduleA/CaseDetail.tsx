@@ -3,10 +3,11 @@
 // Displays detailed view of a case with parties and policies
 // UPDATED: Now using sunflower design system + AppLayout
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCaseStore } from '../../stores/caseStore';
 import { sunflowerTheme } from '../../styles/sunflowerTheme';
+import { DispositionModal } from './disposition/DispositionModal';
 
 // Floral assets
 import heroSunflower from '../../assets/florals/heroes/sunflowers-cluster.png';
@@ -21,11 +22,18 @@ export const CaseDetail: React.FC = () => {
     selectedCase,
     parties,
     policies,
+    disposition,
+    caseContacts,
+    contacts,
     isLoading,
     error,
     selectCase,
     clearSelectedCase,
+    loadContactsForCase,
+    loadContacts
   } = useCaseStore();
+
+  const [showDispositionModal, setShowDispositionModal] = useState(false);
 
   useEffect(() => {
     if (caseId) {
@@ -36,12 +44,25 @@ export const CaseDetail: React.FC = () => {
     };
   }, [caseId]);
 
+  // Load contacts when case is selected
+  useEffect(() => {
+    if (selectedCase) {
+      loadContactsForCase(selectedCase.id);
+      loadContacts(); // Load global contacts for linking
+    }
+  }, [selectedCase, loadContactsForCase, loadContacts]);
+
   const handleEdit = () => {
     navigate(`/cases/${caseId}/edit`);
   };
 
   const handleBack = () => {
     navigate('/cases');
+  };
+
+  const handleLinkContact = (contact: any) => {
+    // Navigate to the contacts tab for this case
+    navigate(`/cases/${caseId}/contacts`);
   };
 
   if (isLoading) {
@@ -113,12 +134,32 @@ export const CaseDetail: React.FC = () => {
               CM# {selectedCase.cm_number}
             </p>
           </div>
-          <button
-            onClick={handleEdit}
-            className={sunflowerTheme.buttons.primary}
-          >
-            Edit Case
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={handleEdit}
+              className={sunflowerTheme.buttons.secondary}
+            >
+              Edit Case
+            </button>
+            {/* Show "Start Disposition" button only for open cases */}
+            {selectedCase.phase === 'Open' && (
+              <button
+                onClick={() => setShowDispositionModal(true)}
+                className={sunflowerTheme.buttons.primary}
+              >
+                Start Disposition
+              </button>
+            )}
+            {/* Show "View Disposition" button for closed cases */}
+            {selectedCase.phase === 'Closed' && disposition && (
+              <button
+                onClick={() => setShowDispositionModal(true)}
+                className={sunflowerTheme.buttons.secondary}
+              >
+                View Disposition
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Case Information */}
@@ -271,6 +312,12 @@ export const CaseDetail: React.FC = () => {
                   Deceased Defendants
                 </span>
               )}
+              {/* Show message if no special considerations */}
+              {!selectedCase.is_wrongful_death && !selectedCase.is_survival_action && !selectedCase.has_deceased_defendants && (
+                <span className="text-sunflower-brown/60 italic text-sm">
+                  No special considerations
+                </span>
+              )}
             </div>
           </div>
 
@@ -419,7 +466,89 @@ export const CaseDetail: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Contacts */}
+        <div className={sunflowerTheme.containers.card + ' px-6 py-6'}>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className={sunflowerTheme.typography.styles.h2}>
+              📞 CONTACTS
+            </h2>
+            <button
+              onClick={() => navigate(`/cases/${caseId}/contacts`)}
+              className={sunflowerTheme.buttons.secondary}
+            >
+              Manage All Contacts
+            </button>
+          </div>
+          
+          {!caseContacts || caseContacts.length === 0 ? (
+            <div className="text-center py-8">
+              <p className={sunflowerTheme.typography.styles.muted + ' mb-4'}>
+                No contacts linked to this case yet.
+              </p>
+              <button
+                onClick={() => navigate(`/cases/${caseId}/contacts`)}
+                className={sunflowerTheme.buttons.primary}
+              >
+                Add First Contact
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Show first few contacts with link to view all */}
+              {caseContacts.slice(0, 3).map((caseContact) => (
+                caseContact.contact && (
+                  <div key={caseContact.id} className="border border-sunflower-taupe/40 rounded-lg p-4 bg-white/50">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className={sunflowerTheme.typography.styles.body + ' font-semibold'}>
+                          {caseContact.contact.name}
+                        </p>
+                        <p className={sunflowerTheme.typography.styles.muted + ' text-sm'}>
+                          {caseContact.contact.organization || 'No organization'} • {caseContact.contact_type.replace('_', ' ')} ({caseContact.role})
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleLinkContact(caseContact.contact!)}
+                        className="px-3 py-1 text-xs bg-sunflower-gold/20 text-sunflower-brown rounded-full hover:bg-sunflower-gold/30 transition-colors"
+                      >
+                        View
+                      </button>
+                    </div>
+                  </div>
+                )
+              ))}
+              
+              {caseContacts.length > 3 && (
+                <div className="text-center pt-4 border-t border-sunflower-taupe/30">
+                  <p className={sunflowerTheme.typography.styles.muted + ' mb-2'}>
+                    Showing 3 of {caseContacts.length} contacts
+                  </p>
+                  <button
+                    onClick={() => navigate(`/cases/${caseId}/contacts`)}
+                    className={sunflowerTheme.buttons.secondary}
+                  >
+                    View All Contacts
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Disposition Modal */}
+      {selectedCase && (
+        <DispositionModal
+          isOpen={showDispositionModal}
+          case={selectedCase}
+          onClose={() => setShowDispositionModal(false)}
+          onSuccess={() => {
+            // Modal will close automatically, and the case will reload with updated status
+            // Disposition completed successfully
+          }}
+        />
+      )}
     </div>
   );
 };

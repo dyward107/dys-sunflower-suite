@@ -138,10 +138,171 @@ CREATE INDEX IF NOT EXISTS idx_case_contacts_contact_id ON case_contacts(contact
 CREATE INDEX IF NOT EXISTS idx_case_contacts_type ON case_contacts(contact_type);
 CREATE INDEX IF NOT EXISTS idx_case_contacts_role ON case_contacts(role);
 CREATE INDEX IF NOT EXISTS idx_case_contacts_primary ON case_contacts(is_primary);
+
+-- ============================================================================
+-- MODULE A PHASE 1C: CASE DISPOSITION
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS case_dispositions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_id INTEGER NOT NULL,
+  
+  -- Disposition details
+  disposition_type TEXT CHECK(disposition_type IN (
+    'settlement', 'verdict', 'dismissal_with_prejudice', 
+    'dismissal_without_prejudice', 'other'
+  )),
+  disposition_date DATE NOT NULL,
+  settlement_amount DECIMAL(12,2),
+  other_disposition_type TEXT, -- For custom types when type='other'
+  
+  -- Settlement workflow tracking
+  settlement_agreement_date DATE,
+  release_drafted INTEGER DEFAULT 0,
+  release_executed INTEGER DEFAULT 0,
+  dismissal_filed INTEGER DEFAULT 0,
+  dismissal_date DATE,
+  
+  -- Documents
+  settlement_agreement_path TEXT,
+  release_document_path TEXT,
+  dismissal_document_path TEXT,
+  
+  -- Refiling potential (auto-enabled for dismissal without prejudice)
+  potential_refiling INTEGER DEFAULT 0,
+  refiling_deadline DATE,
+  refiling_days_notice INTEGER DEFAULT 90,
+  refiling_reminder_set INTEGER DEFAULT 0,
+  
+  -- Notes
+  disposition_notes TEXT,
+  
+  -- Metadata
+  created_by TEXT DEFAULT 'system',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_dispositions_case_id ON case_dispositions(case_id);
+CREATE INDEX IF NOT EXISTS idx_dispositions_type ON case_dispositions(disposition_type);
+CREATE INDEX IF NOT EXISTS idx_dispositions_date ON case_dispositions(disposition_date);
+CREATE INDEX IF NOT EXISTS idx_dispositions_refiling ON case_dispositions(potential_refiling);
+
+-- ============================================================================
+-- MODULE A PHASE 1D: DOCUMENT MANAGEMENT & ENHANCED PARTIES/POLICIES
+-- ============================================================================
+
+-- Enhanced case_parties table with additional fields
+-- NOTE: These ALTER TABLE statements are handled programmatically with column existence checks
+-- to prevent "duplicate column" errors on subsequent runs
+
+CREATE INDEX IF NOT EXISTS idx_case_parties_contact ON case_parties(contact_id);
+
+-- Central document repository
+CREATE TABLE IF NOT EXISTS case_documents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_id INTEGER NOT NULL,
+  
+  -- Document file information
+  document_name TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  file_type TEXT, -- pdf, docx, image, etc.
+  file_size INTEGER, -- in bytes
+  upload_date DATE DEFAULT CURRENT_DATE,
+  document_date DATE, -- actual date of document content
+  
+  -- Document categorization
+  document_type TEXT CHECK(document_type IN (
+    -- Investigation documents
+    'ISO_report', 'MVAR', 'citation', 'background_check', 'social_media_post',
+    'arrests', 'SIU_materials', 'obituary', 'education_related', 'work_related',
+    'website_bio', 'corporate_filing', 'other_lawsuits', 'other_claims',
+    -- Standard litigation documents
+    'deposition_transcript', 'policy_document', 'medical_records', 'pleading',
+    'discovery_response', 'expert_report', 'other'
+  )),
+  
+  -- SOURCE TRACKING (Critical for litigation!)
+  source_type TEXT NOT NULL CHECK(source_type IN (
+    'claim_file', 'pleadings', 'document_production', 'non_party_production',
+    'pre_suit_demand', 'private_investigator', 'public_records', 'expert',
+    'news_article', 'website', 'social_media'
+  )),
+  
+  -- Source details (conditional based on source_type)
+  source_party_id INTEGER REFERENCES case_parties(id),
+  source_party_name TEXT, -- cached for display
+  source_notes TEXT, -- "Produced in response to RFP #12"
+  production_date DATE, -- when we received it
+  bates_range TEXT, -- "DEFENDANT_0001-0045"
+  
+  -- Document content
+  description TEXT,
+  notes TEXT,
+  tags TEXT, -- JSON array for future chronology integration
+  extracted_text TEXT, -- Future: OCR for full-text search
+  
+  -- Metadata
+  uploaded_by TEXT DEFAULT 'system',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_documents_case ON case_documents(case_id);
+CREATE INDEX IF NOT EXISTS idx_documents_type ON case_documents(document_type);
+CREATE INDEX IF NOT EXISTS idx_documents_source ON case_documents(source_type);
+CREATE INDEX IF NOT EXISTS idx_documents_date ON case_documents(document_date);
+CREATE INDEX IF NOT EXISTS idx_documents_source_party ON case_documents(source_party_id);
+
+-- Link documents to parties (many-to-many relationship)
+CREATE TABLE IF NOT EXISTS party_documents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  party_id INTEGER NOT NULL,
+  document_id INTEGER NOT NULL,
+  
+  -- Context for this relationship
+  relevance_notes TEXT, -- "This background check shows 3 prior DUIs"
+  is_primary_subject INTEGER DEFAULT 1, -- Boolean: Is this party the main subject?
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (party_id) REFERENCES case_parties(id) ON DELETE CASCADE,
+  FOREIGN KEY (document_id) REFERENCES case_documents(id) ON DELETE CASCADE,
+  UNIQUE(party_id, document_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_party_documents_party ON party_documents(party_id);
+CREATE INDEX IF NOT EXISTS idx_party_documents_document ON party_documents(document_id);
+
+-- Link documents to policies (many-to-many relationship)
+CREATE TABLE IF NOT EXISTS policy_documents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  policy_id INTEGER NOT NULL,
+  document_id INTEGER NOT NULL,
+  
+  -- What kind of policy document is this?
+  policy_doc_type TEXT CHECK(policy_doc_type IN (
+    'declaration_page', 'full_policy', 'um_uim_policy', 
+    'coverage_letter', 'denial_letter', 'other'
+  )),
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (policy_id) REFERENCES case_policies(id) ON DELETE CASCADE,
+  FOREIGN KEY (document_id) REFERENCES case_documents(id) ON DELETE CASCADE,
+  UNIQUE(policy_id, document_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_policy_documents_policy ON policy_documents(policy_id);
+CREATE INDEX IF NOT EXISTS idx_policy_documents_document ON policy_documents(document_id);
 `;
 
 // ============================================================================
-// TYPE DEFINITIONS (Phase 1A & 1B)
+// TYPE DEFINITIONS (Phase 1A, 1B & 1C)
 // ============================================================================
 
 interface CaseInput {
@@ -286,6 +447,68 @@ interface ContactFilters {
   preferred_contact?: PreferredContact;
 }
 
+// Phase 1C Disposition Interfaces
+type DispositionType = 'settlement' | 'verdict' | 'dismissal_with_prejudice' | 'dismissal_without_prejudice' | 'other';
+
+interface Disposition {
+  id: number;
+  case_id: number;
+  disposition_type: DispositionType;
+  disposition_date: string;
+  settlement_amount?: number;
+  other_disposition_type?: string;
+  
+  // Settlement workflow tracking
+  settlement_agreement_date?: string;
+  release_drafted: boolean;
+  release_executed: boolean;
+  dismissal_filed: boolean;
+  dismissal_date?: string;
+  
+  // Documents
+  settlement_agreement_path?: string;
+  release_document_path?: string;
+  dismissal_document_path?: string;
+  
+  // Refiling
+  potential_refiling: boolean;
+  refiling_deadline?: string;
+  refiling_days_notice: number;
+  refiling_reminder_set: boolean;
+  disposition_notes?: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface DispositionInput {
+  case_id: number;
+  disposition_type: DispositionType;
+  disposition_date: string;
+  settlement_amount?: number;
+  other_disposition_type?: string;
+  
+  // Settlement workflow tracking
+  settlement_agreement_date?: string;
+  release_drafted?: boolean;
+  release_executed?: boolean;
+  dismissal_filed?: boolean;
+  dismissal_date?: string;
+  
+  // Documents
+  settlement_agreement_path?: string;
+  release_document_path?: string;
+  dismissal_document_path?: string;
+  
+  // Refiling
+  potential_refiling?: boolean;
+  refiling_deadline?: string;
+  refiling_days_notice?: number;
+  refiling_reminder_set?: boolean;
+  disposition_notes?: string;
+  created_by?: string;
+}
+
 export class DatabaseService {
   private db: Database | null = null;
   private dbPath: string;
@@ -337,6 +560,30 @@ export class DatabaseService {
         console.log('Migration: Added is_deleted column to cases table');
       } catch (migrationError: any) {
         console.error('Migration error:', migrationError.message);
+      }
+    }
+
+    // Migration: Add Phase 1D enhanced party columns if they don't exist
+    const phase1dColumns = [
+      { name: 'date_of_birth', type: 'DATE' },
+      { name: 'ssn_last_four', type: 'TEXT' },
+      { name: 'drivers_license', type: 'TEXT' },
+      { name: 'contact_id', type: 'INTEGER REFERENCES global_contacts(id)' }
+    ];
+
+    for (const column of phase1dColumns) {
+      try {
+        // Check if column exists
+        this.db.exec(`SELECT ${column.name} FROM case_parties LIMIT 1`);
+        // Column exists, no migration needed
+      } catch (error: any) {
+        // Column doesn't exist, add it
+        try {
+          this.db.exec(`ALTER TABLE case_parties ADD COLUMN ${column.name} ${column.type}`);
+          console.log(`Migration: Added ${column.name} column to case_parties table`);
+        } catch (migrationError: any) {
+          console.error(`Migration error for ${column.name}:`, migrationError.message);
+        }
       }
     }
 
@@ -410,6 +657,49 @@ export class DatabaseService {
     const result = this.db.exec('SELECT last_insert_rowid() as id');
     const id = result[0].values[0][0] as number;
 
+    // Automatically add primary parties to case_parties table
+    // Add primary plaintiff
+    this.db.run(`
+      INSERT INTO case_parties (
+        case_id, party_type, party_name, is_corporate, is_primary,
+        is_insured, is_presuit, monitor_for_service,
+        service_date, answer_filed_date, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      id,
+      'plaintiff',
+      caseData.primary_plaintiff_name,
+      0, // is_corporate (default false)
+      1, // is_primary (TRUE)
+      0, // is_insured
+      0, // is_presuit
+      0, // monitor_for_service
+      null, // service_date
+      null, // answer_filed_date
+      null  // notes
+    ]);
+
+    // Add primary defendant
+    this.db.run(`
+      INSERT INTO case_parties (
+        case_id, party_type, party_name, is_corporate, is_primary,
+        is_insured, is_presuit, monitor_for_service,
+        service_date, answer_filed_date, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      id,
+      'defendant',
+      caseData.primary_defendant_name,
+      0, // is_corporate (default false)
+      1, // is_primary (TRUE)
+      0, // is_insured
+      0, // is_presuit
+      0, // monitor_for_service
+      null, // service_date
+      null, // answer_filed_date
+      null  // notes
+    ]);
+
     this.save();
     return id;
   }
@@ -456,6 +746,16 @@ export class DatabaseService {
       columns.forEach((col: string, i: number) => {
         obj[col] = row[i];
       });
+
+      // Convert boolean fields from integers to proper booleans
+      const booleanFields = ['is_wrongful_death', 'is_survival_action', 'has_deceased_defendants', 
+                            'discovery_deadline_extended', 'is_deleted'];
+      booleanFields.forEach(field => {
+        if (obj[field] !== undefined) {
+          obj[field] = Boolean(obj[field]);
+        }
+      });
+
       return obj;
     });
   }
@@ -472,6 +772,16 @@ export class DatabaseService {
     columns.forEach((col: string, i: number) => {
       obj[col] = values[i];
     });
+
+    // Convert boolean fields from integers to proper booleans
+    const booleanFields = ['is_wrongful_death', 'is_survival_action', 'has_deceased_defendants', 
+                          'discovery_deadline_extended', 'is_deleted'];
+    booleanFields.forEach(field => {
+      if (obj[field] !== undefined) {
+        obj[field] = Boolean(obj[field]);
+      }
+    });
+
     return obj;
   }
 
@@ -602,6 +912,15 @@ export class DatabaseService {
       columns.forEach((col: string, i: number) => {
         obj[col] = row[i];
       });
+
+      // Convert boolean fields from integers to proper booleans
+      const booleanFields = ['is_corporate', 'is_primary', 'is_insured', 'is_presuit', 'monitor_for_service'];
+      booleanFields.forEach(field => {
+        if (obj[field] !== undefined) {
+          obj[field] = Boolean(obj[field]);
+        }
+      });
+
       return obj;
     });
   }
@@ -689,6 +1008,15 @@ export class DatabaseService {
       columns.forEach((col: string, i: number) => {
         obj[col] = row[i];
       });
+
+      // Convert boolean fields from integers to proper booleans
+      const booleanFields = ['we_are_retained_by_carrier'];
+      booleanFields.forEach(field => {
+        if (obj[field] !== undefined) {
+          obj[field] = Boolean(obj[field]);
+        }
+      });
+
       return obj;
     });
   }
@@ -1032,6 +1360,527 @@ export class DatabaseService {
     } else {
       return `${plaintiffLastName} v. ${caseData.primary_defendant_name}`;
     }
+  }
+
+  // ============================================================================
+  // MODULE A PHASE 1C: DISPOSITION METHODS
+  // ============================================================================
+
+  async createDisposition(dispositionData: DispositionInput): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const query = `
+      INSERT INTO case_dispositions (
+        case_id, disposition_type, disposition_date, settlement_amount,
+        other_disposition_type, settlement_agreement_date, release_drafted,
+        release_executed, dismissal_filed, dismissal_date, settlement_agreement_path,
+        release_document_path, dismissal_document_path, potential_refiling,
+        refiling_deadline, refiling_days_notice, refiling_reminder_set,
+        disposition_notes, created_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    this.db.run(query, [
+      dispositionData.case_id,
+      dispositionData.disposition_type,
+      dispositionData.disposition_date,
+      dispositionData.settlement_amount || null,
+      dispositionData.other_disposition_type || null,
+      dispositionData.settlement_agreement_date || null,
+      dispositionData.release_drafted ? 1 : 0,
+      dispositionData.release_executed ? 1 : 0,
+      dispositionData.dismissal_filed ? 1 : 0,
+      dispositionData.dismissal_date || null,
+      dispositionData.settlement_agreement_path || null,
+      dispositionData.release_document_path || null,
+      dispositionData.dismissal_document_path || null,
+      dispositionData.potential_refiling ? 1 : 0,
+      dispositionData.refiling_deadline || null,
+      dispositionData.refiling_days_notice || 90,
+      dispositionData.refiling_reminder_set ? 1 : 0,
+      dispositionData.disposition_notes || null,
+      dispositionData.created_by || 'system'
+    ]);
+
+    const result = this.db.exec('SELECT last_insert_rowid() as id');
+    const dispositionId = result[0].values[0][0] as number;
+
+    // Update the case status to closed and set date_closed
+    await this.updateCase(dispositionData.case_id, {
+      phase: 'Closed',
+      date_closed: dispositionData.disposition_date
+    });
+
+    this.save();
+    return dispositionId;
+  }
+
+  async getDisposition(caseId: number): Promise<Disposition | null> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const query = `
+      SELECT * FROM case_dispositions 
+      WHERE case_id = ? 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `;
+    
+    const result = this.db.exec(query, [caseId]);
+    if (result.length === 0 || result[0].values.length === 0) return null;
+    
+    const columns = result[0].columns;
+    const values = result[0].values[0];
+    const obj: any = {};
+    
+    columns.forEach((col: string, i: number) => {
+      obj[col] = values[i];
+      // Convert integer flags to booleans
+      if (col === 'potential_refiling' || col === 'refiling_reminder_set' || 
+          col === 'release_drafted' || col === 'release_executed' || col === 'dismissal_filed') {
+        obj[col] = values[i] === 1;
+      }
+    });
+
+    return obj as Disposition;
+  }
+
+  async updateDisposition(id: number, updates: Partial<DispositionInput>): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const setClause: string[] = [];
+    const values: any[] = [];
+    
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value !== undefined) {
+        setClause.push(`${key} = ?`);
+        // Handle boolean fields
+        if (key === 'potential_refiling' || key === 'refiling_reminder_set' ||
+            key === 'release_drafted' || key === 'release_executed' || key === 'dismissal_filed') {
+          values.push(value ? 1 : 0);
+        } else {
+          values.push(value);
+        }
+      }
+    });
+    
+    if (setClause.length === 0) return false;
+    
+    // Always update the updated_at timestamp
+    setClause.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
+    
+    const query = `UPDATE case_dispositions SET ${setClause.join(', ')} WHERE id = ?`;
+    this.db.run(query, values);
+    this.save();
+    
+    return true;
+  }
+
+  async deleteDisposition(id: number): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    // Get the disposition first to get the case_id
+    const disposition = await this.getDispositionById(id);
+    if (!disposition) return false;
+    
+    // Delete the disposition
+    this.db.run('DELETE FROM case_dispositions WHERE id = ?', [id]);
+    
+    // Reopen the case (remove closed status)
+    await this.updateCase(disposition.case_id, {
+      phase: 'Open',
+      date_closed: undefined
+    });
+    
+    this.save();
+    return true;
+  }
+
+  async getDispositionById(id: number): Promise<Disposition | null> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const query = 'SELECT * FROM case_dispositions WHERE id = ?';
+    const result = this.db.exec(query, [id]);
+    
+    if (result.length === 0 || result[0].values.length === 0) return null;
+    
+    const columns = result[0].columns;
+    const values = result[0].values[0];
+    const obj: any = {};
+    
+    columns.forEach((col: string, i: number) => {
+      obj[col] = values[i];
+      if (col === 'potential_refiling' || col === 'refiling_reminder_set' ||
+          col === 'release_drafted' || col === 'release_executed' || col === 'dismissal_filed') {
+        obj[col] = values[i] === 1;
+      }
+    });
+
+    return obj as Disposition;
+  }
+
+  async getCaseDispositions(caseId: number): Promise<Disposition[]> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const query = `
+      SELECT * FROM case_dispositions 
+      WHERE case_id = ? 
+      ORDER BY created_at DESC
+    `;
+    
+    const result = this.db.exec(query, [caseId]);
+    if (result.length === 0) return [];
+    
+    const columns = result[0].columns;
+    const values = result[0].values;
+    
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+        if (col === 'potential_refiling' || col === 'refiling_reminder_set' ||
+            col === 'release_drafted' || col === 'release_executed' || col === 'dismissal_filed') {
+          obj[col] = row[i] === 1;
+        }
+      });
+      return obj as Disposition;
+    });
+  }
+
+  // ============================================================================
+  // MODULE A PHASE 1D: DOCUMENT MANAGEMENT METHODS
+  // ============================================================================
+
+  async createDocument(documentData: any): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const query = `
+      INSERT INTO case_documents (
+        case_id, document_name, file_path, file_type, file_size, document_date,
+        document_type, source_type, source_party_id, source_party_name,
+        source_notes, production_date, bates_range, description, notes, tags, uploaded_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    this.db.run(query, [
+      documentData.case_id,
+      documentData.document_name,
+      documentData.file_path,
+      documentData.file_type || null,
+      documentData.file_size || null,
+      documentData.document_date || null,
+      documentData.document_type || 'other',
+      documentData.source_type,
+      documentData.source_party_id || null,
+      documentData.source_party_name || null,
+      documentData.source_notes || null,
+      documentData.production_date || null,
+      documentData.bates_range || null,
+      documentData.description || null,
+      documentData.notes || null,
+      documentData.tags || null,
+      documentData.uploaded_by || 'system'
+    ]);
+
+    const result = this.db.exec('SELECT last_insert_rowid() as id');
+    const documentId = result[0].values[0][0] as number;
+
+    this.save();
+    return documentId;
+  }
+
+  async getDocumentById(id: number): Promise<any | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec('SELECT * FROM case_documents WHERE id = ?', [id]);
+    if (result.length === 0 || result[0].values.length === 0) return null;
+
+    const columns = result[0].columns;
+    const values = result[0].values[0];
+    const obj: any = {};
+    columns.forEach((col: string, i: number) => {
+      obj[col] = values[i];
+    });
+
+    return obj;
+  }
+
+  async getDocumentsForCase(caseId: number): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec(
+      'SELECT * FROM case_documents WHERE case_id = ? ORDER BY upload_date DESC',
+      [caseId]
+    );
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
+  }
+
+  async updateDocument(id: number, updates: any): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value !== undefined) {
+        fields.push(`${key} = ?`);
+        values.push(value);
+      }
+    });
+
+    if (fields.length === 0) return false;
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    const query = `UPDATE case_documents SET ${fields.join(', ')} WHERE id = ?`;
+    values.push(id);
+
+    this.db.run(query, values);
+    this.save();
+    return true;
+  }
+
+  async deleteDocument(id: number): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    // Delete document and all its relationships (CASCADE will handle linking tables)
+    this.db.run('DELETE FROM case_documents WHERE id = ?', [id]);
+    this.save();
+    return true;
+  }
+
+  // ============================================================================
+  // PARTY-DOCUMENT LINKING METHODS
+  // ============================================================================
+
+  async linkDocumentToParty(partyId: number, documentId: number, relevanceNotes?: string, isPrimarySubject = true): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      this.db.run(
+        'INSERT INTO party_documents (party_id, document_id, relevance_notes, is_primary_subject) VALUES (?, ?, ?, ?)',
+        [partyId, documentId, relevanceNotes || null, isPrimarySubject ? 1 : 0]
+      );
+      this.save();
+      return true;
+    } catch (error) {
+      // Handle unique constraint violation (already linked)
+      return false;
+    }
+  }
+
+  async unlinkDocumentFromParty(partyId: number, documentId: number): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    this.db.run('DELETE FROM party_documents WHERE party_id = ? AND document_id = ?', [partyId, documentId]);
+    this.save();
+    return true;
+  }
+
+  async getDocumentsForParty(partyId: number): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec(`
+      SELECT cd.*, pd.relevance_notes, pd.is_primary_subject
+      FROM case_documents cd
+      JOIN party_documents pd ON cd.id = pd.document_id
+      WHERE pd.party_id = ?
+      ORDER BY cd.upload_date DESC
+    `, [partyId]);
+
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+        // Convert boolean fields
+        if (col === 'is_primary_subject') {
+          obj[col] = row[i] === 1;
+        }
+      });
+      return obj;
+    });
+  }
+
+  async getPartiesForDocument(documentId: number): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec(`
+      SELECT cp.*, pd.relevance_notes, pd.is_primary_subject
+      FROM case_parties cp
+      JOIN party_documents pd ON cp.id = pd.party_id
+      WHERE pd.document_id = ?
+    `, [documentId]);
+
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+        // Convert boolean fields
+        if (['is_corporate', 'is_primary', 'is_insured', 'is_presuit', 'monitor_for_service', 'is_primary_subject'].includes(col)) {
+          obj[col] = row[i] === 1;
+        }
+      });
+      return obj;
+    });
+  }
+
+  // ============================================================================
+  // POLICY-DOCUMENT LINKING METHODS
+  // ============================================================================
+
+  async linkDocumentToPolicy(policyId: number, documentId: number, policyDocType = 'other'): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      this.db.run(
+        'INSERT INTO policy_documents (policy_id, document_id, policy_doc_type) VALUES (?, ?, ?)',
+        [policyId, documentId, policyDocType]
+      );
+      this.save();
+      return true;
+    } catch (error) {
+      // Handle unique constraint violation (already linked)
+      return false;
+    }
+  }
+
+  async unlinkDocumentFromPolicy(policyId: number, documentId: number): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    this.db.run('DELETE FROM policy_documents WHERE policy_id = ? AND document_id = ?', [policyId, documentId]);
+    this.save();
+    return true;
+  }
+
+  async getDocumentsForPolicy(policyId: number): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec(`
+      SELECT cd.*, pd.policy_doc_type
+      FROM case_documents cd
+      JOIN policy_documents pd ON cd.id = pd.document_id
+      WHERE pd.policy_id = ?
+      ORDER BY cd.upload_date DESC
+    `, [policyId]);
+
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
+  }
+
+  // ============================================================================
+  // ENHANCED PARTY METHODS (FOR NEW FIELDS)
+  // ============================================================================
+
+  async updatePartyExtended(id: number, updates: any): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value !== undefined && key !== 'case_id') {
+        fields.push(`${key} = ?`);
+        if (typeof value === 'boolean') {
+          values.push(value ? 1 : 0);
+        } else {
+          values.push(value);
+        }
+      }
+    });
+
+    if (fields.length === 0) return false;
+
+    const query = `UPDATE case_parties SET ${fields.join(', ')} WHERE id = ?`;
+    values.push(id);
+
+    this.db.run(query, values);
+    this.save();
+    return true;
+  }
+
+  async getPartyWithDocuments(partyId: number): Promise<any | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    // Get party details
+    const partyResult = this.db.exec('SELECT * FROM case_parties WHERE id = ?', [partyId]);
+    if (partyResult.length === 0 || partyResult[0].values.length === 0) return null;
+
+    const columns = partyResult[0].columns;
+    const values = partyResult[0].values[0];
+    const party: any = {};
+    columns.forEach((col: string, i: number) => {
+      party[col] = values[i];
+    });
+
+    // Convert boolean fields
+    const booleanFields = ['is_corporate', 'is_primary', 'is_insured', 'is_presuit', 'monitor_for_service'];
+    booleanFields.forEach(field => {
+      if (party[field] !== undefined) {
+        party[field] = Boolean(party[field]);
+      }
+    });
+
+    // Get associated documents
+    party.documents = await this.getDocumentsForParty(partyId);
+
+    return party;
+  }
+
+  // ============================================================================
+  // HELPER METHODS
+  // ============================================================================
+
+  async getDocumentStats(caseId: number): Promise<any> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec(`
+      SELECT 
+        COUNT(*) as total_documents,
+        COUNT(CASE WHEN document_type LIKE '%investigation%' OR document_type IN ('ISO_report', 'MVAR', 'citation', 'background_check') THEN 1 END) as investigation_docs,
+        COUNT(CASE WHEN source_type = 'document_production' THEN 1 END) as production_docs,
+        COUNT(CASE WHEN document_type = 'policy_document' THEN 1 END) as policy_docs
+      FROM case_documents 
+      WHERE case_id = ?
+    `, [caseId]);
+
+    if (result.length === 0 || result[0].values.length === 0) {
+      return { total_documents: 0, investigation_docs: 0, production_docs: 0, policy_docs: 0 };
+    }
+
+    const columns = result[0].columns;
+    const values = result[0].values[0];
+    const stats: any = {};
+    columns.forEach((col: string, i: number) => {
+      stats[col] = values[i];
+    });
+
+    return stats;
   }
 
   close(): void {

@@ -1,11 +1,12 @@
-# 🌻 SUNFLOWER SUITE v5.1 - CHARTER WITH NAVIGATION ARCHITECTURE
+# 🌻 SUNFLOWER SUITE v5.2 - CHARTER WITH ARCHITECTURAL CORRECTIONS
 ## Complete Legal Case Management System for Civil Defense Litigation
 ### The Attorney's Operating System
 
-**Version:** 5.1 (Navigation Architecture Update)  
+**Version:** 5.2 (Module Responsibility Corrections)  
 **Date:** November 2025  
 **Author:** Dy  
-**Status:** Production Charter with Module A Phase 1A Complete + Phase 1B Architecture Defined  
+**Status:** Production Charter with Module A Phase 1A-1B Complete + Architectural Corrections Applied  
+**See Also:** ADDENDUM_MODULE_CORRECTIONS.md for detailed architectural changes  
 
 ---
 
@@ -21,16 +22,17 @@
 **PART II: MODULE SPECIFICATIONS**
 1. [Module A: Case Manager (Foundation)](#module-a-case-manager)
 2. [Module B: Task & Workflow Manager](#module-b-task-workflow)
-3. [Module C: Calendar & Deadlines](#module-c-calendar-deadlines)
-4. [Module D: Discovery & Evidence Manager](#module-d-discovery-evidence)
-5. [Module E: Case Chronology & Narrative](#module-e-chronology-narrative)
-6. [Module F: Medical Chronology & Damages](#module-f-medical-chronology)
-7. [Module G: Issues & Claims Management](#module-g-issues-claims)
-8. [Module H: Deposition Preparation](#module-h-deposition-prep)
-9. [Module I: Document Creation & Templates](#module-i-document-creation)
-10. [Module J: Trial Notebook](#module-j-trial-notebook)
-11. [Module K: Communications & Contacts](#module-k-communications)
-12. [Module L: Analytics Dashboard](#module-l-analytics)
+3. [Module K: Communications & Contacts](#module-k-communications) ⚠️ **MOVED UP - FOUNDATIONAL**
+4. [Module SU: Shared Utilities](#module-su-utilities)
+5. [Module C: Calendar & Deadlines](#module-c-calendar-deadlines)
+6. [Module D: Discovery & Evidence Manager](#module-d-discovery-evidence)
+7. [Module E: Case Chronology & Narrative](#module-e-chronology-narrative)
+8. [Module F: Medical Chronology & Damages](#module-f-medical-chronology)
+9. [Module G: Issues & Claims Management](#module-g-issues-claims)
+10. [Module H: Deposition Preparation](#module-h-deposition-prep)
+11. [Module I: Document Creation & Templates](#module-i-document-creation)
+12. [Module J: Trial Notebook](#module-j-trial-notebook)
+13. [Module L: Analytics Dashboard](#module-l-analytics)
 
 **PART III: SHARED UTILITIES**
 1. [Module SU: Shared Utilities & Automations](#module-su-utilities)
@@ -373,13 +375,69 @@ const allContacts = useContactStore(state => state.contacts); // Loads ALL conta
 
 ## PART II: MODULE SPECIFICATIONS
 
+### ⚠️ CORRECTED IMPLEMENTATION ORDER
+
+**CRITICAL CHANGE:** Module implementation order has been revised based on architectural insights. See ADDENDUM_MODULE_CORRECTIONS.md for complete rationale.
+
+**Phase 1: Foundation (Weeks 1-3)**
+1. **Module A** - Case Manager (all phases: 1A ✅, 1B ✅, 1C 📋)
+   - Foundation data store and dashboard layer
+   - Case intake, parties, policies, contacts, disposition
+
+2. **Module B** - Task & Workflow Manager
+   - Logic engine with phase progression
+   - 18 litigation cadences with 251+ tasks
+   - **Owns phase transition logic**
+
+3. **Module K** - Communications & Contacts 🔺 **MOVED UP!**
+   - Communication logging hub
+   - Required by all subsequent modules
+   - Integrates with Module A Phase 1B contacts
+
+**Phase 2: Infrastructure (Week 4)**
+4. **Module SU** - Shared Utilities
+   - Date/time calculations
+   - Export/import functions
+   - Validation libraries
+
+**Phase 3: Core Workflow (Weeks 5-8)**
+5. **Module C** - Calendar & Deadlines
+6. **Module D** - Discovery & Evidence Manager
+7. **Module E** - Case Chronology & Narrative
+
+**Phase 4: Specialized Features (Weeks 9-12)**
+8. **Module F** - Medical Chronology & Damages
+9. **Module G** - Issues & Claims Management
+10. **Module H** - Deposition Preparation
+
+**Phase 5: Output & Trial (Weeks 13-15)**
+11. **Module I** - Document Creation & Templates
+12. **Module J** - Trial Notebook
+
+**Phase 6: Analytics (Week 16)**
+13. **Module L** - Analytics Dashboard
+
+**Key Changes from Original Plan:**
+- ✅ Module K moved from position #11 to #3 (foundational, not end feature)
+- ✅ Phase progression logic moved to Module B (no duplication)
+- ✅ Module A simplified to dashboard/display layer
+- ✅ Module A Phase 1C changed from lifecycle management to disposition form
+
+---
+
 ### Module A: Case Manager (Foundation) {#module-a-case-manager}
 
 **Status:** Phase 1A ✅ Complete | Phase 1B 🔄 In Progress | Phase 1C 📋 Planned
 
 #### Overview
 
-Module A serves as the foundation for all other modules, providing comprehensive case intake, party management, insurance tracking, and case lifecycle management. It establishes the core data model that all other modules reference.
+**⚠️ ARCHITECTURAL ROLE:** Module A is the **foundation data store and dashboard layer** for all other modules. It provides:
+- **Data Storage:** Core case metadata, parties, policies, contacts
+- **Display Dashboard:** Shows aggregated data from all modules
+- **Entry Point:** Case intake, disposition process, and basic forms
+- **NOT a Logic Processor:** Phase progression is handled by Module B, communications by Module K
+
+Module A **displays but does not manage** data from other modules. It establishes the core data model that all modules reference, but specialized modules own their own domain logic.
 
 #### Phase 1A: Core Case Database (✅ COMPLETE)
 
@@ -485,49 +543,97 @@ CREATE TABLE global_contacts (
 );
 ```
 
-#### Phase 1C: Case Lifecycle Management (📋 PLANNED)
+#### Phase 1C: Case Disposition Form (📋 PLANNED)
 
-**Scope:** Track case progression through litigation phases with milestone tracking
+**⚠️ ARCHITECTURAL CORRECTION:** Previous specification moved Phase Progression to Module B and Correspondence to Module K (see ADDENDUM_MODULE_CORRECTIONS.md)
+
+**Scope:** Simple, self-contained disposition form for case closure process
 
 **Features to Implement:**
-1. **Phase Progression System**
-   - 10 defined litigation phases
-   - Automatic phase detection based on events
-   - Phase transition logging
-   - Backward phase movement support
+1. **Disposition Form UI**
+   - Settlement agreement upload
+   - Release document upload/generation
+   - Dismissal document upload/generation
+   - Disposition type selection (settlement/verdict/dismissal)
+   - Settlement amount field
+   - Disposition notes
 
-2. **Correspondence Tracking**
-   - Log all case communications
-   - Link to contacts
-   - Optional attachment references
-   - Communication method tracking
-   - Follow-up reminders
+2. **Refiling Management**
+   - Potential for refiling checkbox
+   - Refiling deadline calculation
+   - Calendar reminder integration (when Module C available)
 
-3. **Case Closure Process**
-   - Settlement documentation
-   - Final billing verification
-   - Document retention compliance
-   - Archive case data
-   - Reactivation capability
+3. **Document Handling**
+   - File upload for settlement documents
+   - Template generation for release
+   - Template generation for dismissal
+   - Document storage and retrieval
 
-**Litigation Phases:**
-1. Pre-Suit Investigation
-2. Complaint Filed/Served
-3. Answer & Initial Pleadings
-4. Written Discovery
-5. Depositions
-6. Mediation
-7. Expert Discovery
-8. Pre-Trial Motions
-9. Trial
-10. Post-Trial/Appeal
+**Database Table:**
+```sql
+CREATE TABLE IF NOT EXISTS case_dispositions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_id INTEGER NOT NULL,
+  
+  -- Disposition details
+  disposition_type TEXT CHECK(disposition_type IN (
+    'settlement', 'verdict', 'dismissal_with_prejudice', 
+    'dismissal_without_prejudice', 'other'
+  )),
+  disposition_date DATE NOT NULL,
+  settlement_amount DECIMAL(12,2),
+  
+  -- Documents
+  settlement_agreement_path TEXT,
+  release_document_path TEXT,
+  dismissal_document_path TEXT,
+  
+  -- Refiling potential
+  potential_refiling INTEGER DEFAULT 0,
+  refiling_deadline DATE,
+  refiling_days_notice INTEGER DEFAULT 90,
+  refiling_reminder_set INTEGER DEFAULT 0,
+  
+  -- Notes
+  disposition_notes TEXT,
+  
+  -- Metadata
+  created_by TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_dispositions_case_id 
+  ON case_dispositions(case_id);
+CREATE INDEX IF NOT EXISTS idx_dispositions_type 
+  ON case_dispositions(disposition_type);
+CREATE INDEX IF NOT EXISTS idx_dispositions_date 
+  ON case_dispositions(disposition_date);
+```
+
+**Actions on Disposition Completion:**
+1. Updates case.phase to 'Closed'
+2. Updates case.date_closed to disposition_date
+3. Notifies Module B to close all open tasks (when available)
+4. Notifies Module C to cancel future deadlines (when available)
+5. Logs disposition as milestone in Module K (when available)
+6. If refiling potential → creates monitoring deadline in Module C
 
 **Acceptance Criteria:**
-- [ ] All 3 phases fully integrated
-- [ ] Backward compatibility maintained
-- [ ] Search includes all new fields
-- [ ] Export functionality for contacts
-- [ ] Phase transition automation working
+- [ ] "Start Disposition" button visible on active cases
+- [ ] Disposition form uploads settlement agreement
+- [ ] Disposition form uploads/generates release document
+- [ ] Disposition form uploads/generates dismissal documents  
+- [ ] Disposition type properly constrained and validated
+- [ ] Settlement amount stored with proper decimal precision
+- [ ] Refiling deadline calculated and stored
+- [ ] Refiling reminder integrates with Module C (when available)
+- [ ] Disposition completion updates case status to 'Closed'
+- [ ] Disposition data persists correctly to database
+- [ ] Closed cases display disposition summary
+- [ ] Document paths stored securely and retrieved correctly
 
 ---
 
@@ -537,7 +643,13 @@ CREATE TABLE global_contacts (
 
 #### Overview
 
-Module B transforms task management from reactive to proactive through intelligent workflow automation. It implements 18 comprehensive litigation cadences containing 251+ predefined tasks, all optimized for Georgia civil defense practice.
+**⚠️ ARCHITECTURAL ROLE:** Module B is the **logic engine and automation processor** for the system. It owns:
+- **Phase Progression Logic:** Detects milestones and updates case phases in Module A
+- **Task Automation:** 18 comprehensive litigation cadences with 251+ predefined tasks
+- **Workflow State Management:** Tracks task completion and triggers next steps
+- **Phase Change Triggers:** Automatically advances cases through litigation stages
+
+Module B transforms task management from reactive to proactive through intelligent workflow automation, optimized for Georgia civil defense practice.
 
 #### Core Features
 
@@ -770,6 +882,33 @@ CREATE TABLE cadence_templates (
 - Mediation scheduled → activates preparation cadence
 - Trial date set → initiates pre-trial checklist
 
+**⚠️ Phase Progression Logic (NEW - Moved from Module A):**
+- **Task completion triggers phase evaluation**
+- **Automatic phase updates** to Module A's `cases.phase` field
+- **Phase history tracking** with timestamps and reasons
+- **10 Litigation Phases:**
+  1. Pre-Suit Investigation
+  2. Complaint Filed/Served
+  3. Answer & Initial Pleadings
+  4. Written Discovery
+  5. Depositions
+  6. Mediation
+  7. Expert Discovery
+  8. Pre-Trial Motions
+  9. Trial
+  10. Post-Trial/Appeal
+
+**Phase Change Examples:**
+```javascript
+// When "File Answer" task completed
+→ Update case.phase to 'answer_initial_pleadings'
+→ Trigger "Answer and Initial Pleadings" cadence
+
+// When "Complete Discovery" task completed
+→ Update case.phase to 'depositions'
+→ Create deposition preparation tasks
+```
+
 **Acceptance Criteria:**
 - [ ] All 18 cadences implemented and tested
 - [ ] Timer functionality working smoothly
@@ -777,6 +916,11 @@ CREATE TABLE cadence_templates (
 - [ ] Task filtering and sorting functional
 - [ ] Overdue tasks highlighted appropriately
 - [ ] Billable/non-billable tracking accurate
+- [ ] **Phase progression logic detects completion triggers**
+- [ ] **Phase changes update Module A database automatically**
+- [ ] **Phase-specific cadences trigger on phase entry**
+- [ ] **Phase regression supported (e.g., case reopened)**
+- [ ] **Phase history tracked with timestamps and user attribution**
 
 ---
 
@@ -2217,9 +2361,17 @@ CREATE TABLE jury_instructions (
 
 **Status:** Specification Complete | Development Pending
 
+**⚠️ IMPLEMENTATION ORDER CHANGE:** Module K moved from position #11 to position #3 in implementation sequence (immediately after Module B). This module is **foundational infrastructure**, not an end feature.
+
 #### Overview
 
-Module K provides centralized communication tracking and contact management, ensuring all case-related communications are logged, searchable, and properly attributed.
+**⚠️ ARCHITECTURAL ROLE:** Module K is the **communication hub and relationship manager** for the entire system. It provides:
+- **ALL Communication Logging:** Phone calls, emails, letters, meetings, video conferences
+- **Contact Database:** Shared with Module A Phase 1B contact management
+- **Integration Point:** Other modules log communications here (Discovery, Depositions, etc.)
+- **Follow-up Management:** Creates tasks in Module B for required follow-ups
+
+Module K provides centralized communication tracking and contact management, ensuring all case-related communications are logged, searchable, and properly attributed to contacts and cases.
 
 #### Core Features
 
