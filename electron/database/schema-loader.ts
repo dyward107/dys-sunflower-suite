@@ -16,7 +16,11 @@ export class SchemaLoader {
     moduleSU: string; 
     combined: string; 
   } {
-    const schemasDir = path.join(__dirname, 'schemas');
+    // CRITICAL: SQL files are NOT copied during TypeScript compilation
+    // We must load from source directory, not dist-electron
+    // __dirname in compiled code points to dist-electron/database/
+    // We need to go back to the source: electron/database/schemas/
+    const schemasDir = path.join(__dirname, '..', '..', 'electron', 'database', 'schemas');
     
     console.log('📁 Loading schemas from:', schemasDir);
     
@@ -83,7 +87,7 @@ export class SchemaLoader {
    * @returns true if all files exist, false otherwise
    */
   static validateSchemaFiles(): boolean {
-    const schemasDir = path.join(__dirname, 'schemas');
+    const schemasDir = path.join(__dirname, '..', '..', 'electron', 'database', 'schemas');
     const requiredFiles = ['module-a.sql', 'module-b.sql', 'module-su.sql'];
     
     try {
