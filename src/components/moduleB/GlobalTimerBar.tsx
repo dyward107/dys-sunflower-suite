@@ -2,9 +2,10 @@
 // Dy's Sunflower Suite v5.0
 // Fixed timer bar at bottom of window (ESSENTIAL feature)
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTaskStore } from '../../stores/taskStore';
 import { Play, Pause, Square } from 'lucide-react';
+import '../../styles/design-system.css';
 
 const MAX_TIMER_MS = 6 * 60 * 60 * 1000; // 6 hours
 const WARNING_TIMER_MS = 5 * 60 * 60 * 1000; // 5 hours
@@ -21,7 +22,6 @@ export function GlobalTimerBar() {
   } = useTaskStore();
 
   const [displayTime, setDisplayTime] = useState('00:00:00');
-  const [showStopModal, setShowStopModal] = useState(false);
 
   const activeTask = tasks.find(t => t.id === activeTimerId);
 
@@ -75,34 +75,12 @@ export function GlobalTimerBar() {
     }
   };
 
-  const handleStop = () => {
-    setShowStopModal(true);
-  };
-
-  const confirmStop = (createEntry: boolean) => {
-    if (createEntry) {
-      // Calculate duration and timestamps
-      const elapsed = getElapsedTime();
-      const now = new Date();
-      const startTime = new Date(now.getTime() - elapsed);
-
-      // Open time entry modal with pre-filled data
-      // This will be handled by the TimeEntryModal component
-      const event = new CustomEvent('open-time-entry-modal', {
-        detail: {
-          task_id: activeTimerId,
-          start_time: startTime.toISOString(),
-          stop_time: now.toISOString(),
-          duration_minutes: Math.floor(elapsed / 60000),
-          entry_date: now.toISOString().split('T')[0],
-        },
-      });
-      window.dispatchEvent(event);
+  const handleStop = async () => {
+    // Auto-save timer session without prompting
+    await stopTimer();
+    if (activeTimerId) {
+      sessionStorage.removeItem(`timer-warning-${activeTimerId}`);
     }
-
-    stopTimer();
-    sessionStorage.removeItem(`timer-warning-${activeTimerId}`);
-    setShowStopModal(false);
   };
 
   if (!activeTimerId || !activeTask) {
@@ -113,111 +91,155 @@ export function GlobalTimerBar() {
   const isPaused = timerPausedAt !== null;
   const isWarning = elapsed >= WARNING_TIMER_MS;
 
-  // Determine background gradient
-  let bgGradient = 'from-blue-500 to-blue-600'; // Normal
+  // Determine background color
+  let backgroundColor = 'var(--color-sunflower)'; // Normal - sunflower yellow
+  let textColor = 'var(--color-brown-primary)'; // Dark brown text
   if (isPaused) {
-    bgGradient = 'from-gray-500 to-gray-600'; // Paused
+    backgroundColor = 'var(--color-blue-gray)'; // Paused - blue-gray
+    textColor = 'white';
   } else if (isWarning) {
-    bgGradient = 'from-orange-500 to-red-600'; // Warning
+    backgroundColor = 'var(--color-error)'; // Warning - muted red
+    textColor = 'white';
   }
 
   return (
     <>
       {/* Global Timer Bar - Fixed at Bottom */}
-      <div className={`fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r ${bgGradient} text-white shadow-lg`}>
-        <div className="px-6 py-3 flex items-center justify-between">
+      <div style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 50,
+        backgroundColor,
+        color: textColor,
+        boxShadow: 'var(--shadow-lg)',
+        borderTop: '2px solid var(--color-border-medium)',
+      }}>
+        <div style={{ 
+          padding: 'var(--spacing-xs) var(--spacing-md)', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between' 
+        }}>
           {/* Task Info */}
-          <div className="flex items-center space-x-4 flex-1 min-w-0">
-            <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${isPaused ? 'bg-gray-300' : 'bg-green-400'} animate-pulse`} />
-              <span className="font-semibold text-sm">TIMER RUNNING</span>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 'var(--spacing-md)', 
+            flex: 1, 
+            minWidth: 0 
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+              <div style={{
+                width: '12px',
+                height: '12px', 
+                borderRadius: '50%',
+                backgroundColor: isPaused ? 'var(--color-text-muted)' : 'var(--color-sage)',
+                animation: isPaused ? 'none' : 'pulse 2s infinite',
+              }} />
+              <span style={{ 
+                fontWeight: 600, 
+                fontSize: 'var(--font-size-xs)', 
+                letterSpacing: '0.5px' 
+              }}>
+                TIMER {isPaused ? 'PAUSED' : 'RUNNING'}
+              </span>
             </div>
-            <div className="border-l border-white/30 h-6" />
-            <div className="flex-1 min-w-0">
-              <p className="font-medium truncate" title={activeTask.title}>
+            <div style={{ 
+              borderLeft: `1px solid ${textColor}`, 
+              opacity: 0.3, 
+              height: '24px' 
+            }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ 
+                fontSize: 'var(--font-size-sm)', 
+                fontWeight: 500, 
+                overflow: 'hidden', 
+                textOverflow: 'ellipsis', 
+                whiteSpace: 'nowrap' 
+              }} title={activeTask.title}>
                 {activeTask.title}
               </p>
-              <p className="text-xs text-white/80">
+              <p style={{ 
+                fontSize: 'var(--font-size-xs)', 
+                opacity: 0.8,
+                marginTop: '2px' 
+              }}>
                 {activeTask.case_id && `Case ID: ${activeTask.case_id}`}
               </p>
             </div>
           </div>
 
           {/* Timer Display */}
-          <div className="flex items-center space-x-6">
-            <div className="text-right">
-              <div className="text-3xl font-bold font-mono tracking-wider">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xl)' }}>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ 
+                fontSize: 'var(--font-size-lg)', 
+                fontWeight: 700, 
+                fontFamily: 'monospace', 
+                letterSpacing: '2px' 
+              }}>
                 {displayTime}
               </div>
               {isWarning && (
-                <div className="text-xs text-yellow-200 font-semibold animate-pulse">
+                <div style={{ 
+                  fontSize: 'var(--font-size-xs)', 
+                  color: '#FFEB3B', 
+                  fontWeight: 600, 
+                  animation: 'pulse 2s infinite',
+                  marginTop: '2px' 
+                }}>
                   ⚠️ Near 6-hour limit
                 </div>
               )}
             </div>
 
             {/* Controls */}
-            <div className="flex items-center space-x-2">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
               <button
                 onClick={handlePauseResume}
-                className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
                 title={isPaused ? 'Resume Timer' : 'Pause Timer'}
+                style={{
+                  padding: 'var(--spacing-xs)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  border: 'none',
+                  borderRadius: 'var(--border-radius-md)',
+                  cursor: 'pointer',
+                  color: textColor,
+                  transition: 'background-color 0.15s ease',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.3)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
               >
                 {isPaused ? (
-                  <Play className="w-5 h-5" />
+                  <Play size={16} />
                 ) : (
-                  <Pause className="w-5 h-5" />
+                  <Pause size={16} />
                 )}
               </button>
               <button
                 onClick={handleStop}
-                className="p-2 bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
                 title="Stop Timer"
+                style={{
+                  padding: 'var(--spacing-xs)',
+                  backgroundColor: 'var(--color-error)',
+                  border: 'none',
+                  borderRadius: 'var(--border-radius-md)',
+                  cursor: 'pointer',
+                  color: 'white',
+                  transition: 'opacity 0.15s ease',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
               >
-                <Square className="w-5 h-5" />
+                <Square size={16} />
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Stop Confirmation Modal */}
-      {showStopModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
-              Stop Timer
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Timer ran for: <span className="font-bold text-gray-900">{displayTime}</span>
-            </p>
-            <p className="text-gray-600 mb-6">
-              Would you like to create a time entry for this task?
-            </p>
-
-            <div className="flex space-x-3">
-              <button
-                onClick={() => confirmStop(true)}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
-              >
-                Yes, Create Time Entry
-              </button>
-              <button
-                onClick={() => confirmStop(false)}
-                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg font-medium transition-colors"
-              >
-                No, Just Stop
-              </button>
-              <button
-                onClick={() => setShowStopModal(false)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

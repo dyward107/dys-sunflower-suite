@@ -20,8 +20,10 @@ CREATE TABLE IF NOT EXISTS tasks (
   status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'in-progress', 'completed', 'cancelled')),
   phase TEXT,
   assigned_to TEXT,
+  tags TEXT,
 
   -- Dates
+  date_assigned DATE DEFAULT CURRENT_DATE,
   due_date DATE,
   completed_date DATE,
 

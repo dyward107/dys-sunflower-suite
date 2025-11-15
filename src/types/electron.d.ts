@@ -1,11 +1,16 @@
 // ELECTRON API TYPE DEFINITIONS
-// Dy's Sunflower Suite v5.0 - Phases 1A, 1B, 1C & Module B
+// Dy's Sunflower Suite v5.0 - Unified Module A + Module B
 
 import { 
   Case, CaseInput, CaseFilters, Party, PartyInput, Policy, PolicyInput,
   Contact, ContactInput, ContactFilters, CaseContact, CaseContactInput,
   Disposition, DispositionInput
 } from './ModuleA';
+
+import {
+  CasePerson, CasePersonInput, PersonType, GlobalContact, GlobalContactInput,
+  CorrespondenceEntry, CorrespondenceEntryInput, CorrespondenceMethod, CorrespondenceDirection
+} from './ModuleA-Unified';
 
 import {
   Task, TaskInput, TaskFilters, TimeEntry, TimeEntryInput,
@@ -81,6 +86,41 @@ export interface ElectronAPI {
     // Utility
     deleteCase: (id: number) => Promise<boolean>;
     generateCaseDisplayName: (caseId: number) => Promise<string>;
+
+    // ============================================================================
+    // MODULE A (UNIFIED): CASE PERSONS (Parties + Contacts)
+    // ============================================================================
+    
+    createCasePerson: (personData: CasePersonInput) => Promise<number>;
+    getCasePersons: (caseId: number) => Promise<CasePerson[]>;
+    getCasePersonById: (personId: number) => Promise<CasePerson | null>;
+    getCaseParties: (caseId: number, partyRole?: 'plaintiff' | 'defendant') => Promise<CasePerson[]>;
+    getInsuredsWeRepresent: (caseId: number) => Promise<CasePerson[]>;
+    getCaseContacts: (caseId: number, personType?: PersonType) => Promise<CasePerson[]>;
+    updateCasePerson: (personId: number, updates: Partial<CasePersonInput>) => Promise<boolean>;
+    deleteCasePerson: (personId: number) => Promise<boolean>;
+
+    // ============================================================================
+    // MODULE A (UNIFIED): CORRESPONDENCE
+    // ============================================================================
+    
+    createCorrespondence: (entryData: CorrespondenceEntryInput) => Promise<number>;
+    getAllCorrespondence: (filters?: { caseId?: number; personId?: number; dateStart?: string; dateEnd?: string }) => Promise<CorrespondenceEntry[]>;
+    getCaseCorrespondence: (caseId: number) => Promise<CorrespondenceEntry[]>;
+    getCorrespondenceById: (entryId: number) => Promise<CorrespondenceEntry | null>;
+    updateCorrespondence: (entryId: number, updates: Partial<CorrespondenceEntryInput>) => Promise<boolean>;
+    deleteCorrespondence: (entryId: number) => Promise<boolean>;
+
+    // ============================================================================
+    // MODULE A (UNIFIED): GLOBAL CONTACTS
+    // ============================================================================
+    
+    createGlobalContact: (contactData: GlobalContactInput) => Promise<number>;
+    getGlobalContacts: (filters?: { contactType?: string; isFavorite?: boolean }) => Promise<GlobalContact[]>;
+    getGlobalContactById: (contactId: number) => Promise<GlobalContact | null>;
+    updateGlobalContact: (contactId: number, updates: Partial<GlobalContactInput>) => Promise<boolean>;
+    deleteGlobalContact: (contactId: number) => Promise<boolean>;
+    promoteToGlobalContact: (personId: number) => Promise<number>;
 
     // ============================================================================
     // MODULE B: TASK & WORKFLOW MANAGER

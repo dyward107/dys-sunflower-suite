@@ -47,7 +47,7 @@ export const GlobalNavBar: React.FC = () => {
   return (
     <nav className="relative z-50 bg-white/95 backdrop-blur-sm border-b border-sunflower-taupe/40 shadow-sm">
       <div className="px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-12">
           
           {/* Left Section: Branding + Navigation */}
           <div className="flex items-center space-x-8">
@@ -59,7 +59,7 @@ export const GlobalNavBar: React.FC = () => {
             >
               <span className="text-2xl">🌻</span>
               <div>
-                <h1 className="font-brand text-xl font-bold text-sunflower-brown">
+                <h1 className="font-brand text-base font-bold text-sunflower-brown">
                   Dy's Sunflower Suite
                 </h1>
                 <p className="text-xs text-sunflower-brown/70 -mt-1">
@@ -111,7 +111,7 @@ export const GlobalNavBar: React.FC = () => {
 
             {/* Mobile Menu Button */}
             <button className="lg:hidden p-2 rounded-lg text-sunflower-brown hover:bg-sunflower-beige/50">
-              <span className="text-xl">☰</span>
+              <span className="text-base">☰</span>
             </button>
 
             {/* Profile Dropdown */}

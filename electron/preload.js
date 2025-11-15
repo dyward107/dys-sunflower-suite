@@ -77,6 +77,41 @@ contextBridge.exposeInMainWorld('electron', {
     generateCaseDisplayName: (caseId) => ipcRenderer.invoke('db:generateCaseDisplayName', caseId),
 
     // ============================================================================
+    // MODULE A (UNIFIED): CASE PERSONS (Parties + Contacts)
+    // ============================================================================
+    
+    createCasePerson: (personData) => ipcRenderer.invoke('db:createCasePerson', personData),
+    getCasePersons: (caseId) => ipcRenderer.invoke('db:getCasePersons', caseId),
+    getCasePersonById: (personId) => ipcRenderer.invoke('db:getCasePersonById', personId),
+    getCaseParties: (caseId, partyRole) => ipcRenderer.invoke('db:getCaseParties', caseId, partyRole),
+    getInsuredsWeRepresent: (caseId) => ipcRenderer.invoke('db:getInsuredsWeRepresent', caseId),
+    getCaseContacts: (caseId, personType) => ipcRenderer.invoke('db:getCaseContacts', caseId, personType),
+    updateCasePerson: (personId, updates) => ipcRenderer.invoke('db:updateCasePerson', personId, updates),
+    deleteCasePerson: (personId) => ipcRenderer.invoke('db:deleteCasePerson', personId),
+
+    // ============================================================================
+    // MODULE A (UNIFIED): CORRESPONDENCE
+    // ============================================================================
+    
+    createCorrespondence: (entryData) => ipcRenderer.invoke('db:createCorrespondence', entryData),
+    getAllCorrespondence: (filters) => ipcRenderer.invoke('db:getAllCorrespondence', filters),
+    getCaseCorrespondence: (caseId) => ipcRenderer.invoke('db:getCaseCorrespondence', caseId),
+    getCorrespondenceById: (entryId) => ipcRenderer.invoke('db:getCorrespondenceById', entryId),
+    updateCorrespondence: (entryId, updates) => ipcRenderer.invoke('db:updateCorrespondence', entryId, updates),
+    deleteCorrespondence: (entryId) => ipcRenderer.invoke('db:deleteCorrespondence', entryId),
+
+    // ============================================================================
+    // MODULE A (UNIFIED): GLOBAL CONTACTS
+    // ============================================================================
+    
+    createGlobalContact: (contactData) => ipcRenderer.invoke('db:createGlobalContact', contactData),
+    getGlobalContacts: (filters) => ipcRenderer.invoke('db:getGlobalContacts', filters),
+    getGlobalContactById: (contactId) => ipcRenderer.invoke('db:getGlobalContactById', contactId),
+    updateGlobalContact: (contactId, updates) => ipcRenderer.invoke('db:updateGlobalContact', contactId, updates),
+    deleteGlobalContact: (contactId) => ipcRenderer.invoke('db:deleteGlobalContact', contactId),
+    promoteToGlobalContact: (personId) => ipcRenderer.invoke('db:promoteToGlobalContact', personId),
+
+    // ============================================================================
     // MODULE B: TASK & WORKFLOW MANAGER
     // ============================================================================
 

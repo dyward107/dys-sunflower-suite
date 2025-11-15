@@ -7,6 +7,7 @@
 
 export type TaskPriority = 1 | 2 | 3 | 4;
 export type TaskStatus = 'pending' | 'in-progress' | 'completed' | 'cancelled';
+export type TaskPhase = string;
 
 export interface Task {
   id: string;
@@ -18,18 +19,20 @@ export interface Task {
   status: TaskStatus;
   phase: string | null;
   assigned_to: string | null;
+  date_assigned: string | null;
   due_date: string | null;
   completed_date: string | null;
   is_billable: boolean;
   estimated_hours: number | null;
   actual_hours: number | null;
+  tags: string | null; // Add back tags field
   is_locked: boolean;
   created_at: string;
   updated_at: string;
 }
 
 export interface TaskInput {
-  case_id: number;
+  case_id: number | string; // Allow both for form handling
   task_group_id?: string;
   title: string;
   description?: string;
@@ -37,12 +40,17 @@ export interface TaskInput {
   status?: TaskStatus;
   phase?: string;
   assigned_to?: string;
+  date_assigned?: string;
   due_date?: string;
   completed_date?: string;
   is_billable?: boolean;
   estimated_hours?: number;
   actual_hours?: number;
+  tags?: string; // Add back tags field
 }
+
+// For backward compatibility
+export type CreateTaskRequest = TaskInput;
 
 export interface TaskFilters {
   case_id?: number;

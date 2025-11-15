@@ -1,0 +1,172 @@
+/* 
+ * DY'S SUNFLOWER SUITE - DESIGN SYSTEM
+ * Light beige background with sunflower yellow accents
+ * Professional legal interface with warm, approachable aesthetics
+ */
+
+:root {
+  /* === PRIMARY COLORS === */
+  --color-bg-primary: #FFF8F0;        /* Light beige/cream background */
+  --color-bg-secondary: #FFF4E6;      /* Slightly darker cream for cards */
+  --color-bg-hover: #FFEFD5;          /* Hover state */
+  
+  --color-sunflower: #F4C430;         /* Primary sunflower yellow */
+  --color-sunflower-dark: #D4A017;    /* Darker yellow for hover */
+  --color-sunflower-light: #FFDB58;   /* Light yellow for highlights */
+  
+  --color-brown-primary: #3E2F23;     /* Dark brown - primary text */
+  --color-brown-medium: #8B6F47;      /* Warm brown - borders, secondary text */
+  --color-brown-light: #C4A57B;       /* Light brown - subtle elements */
+  
+  /* === ACCENT COLORS === */
+  --color-sage: #9CAF88;              /* Sage green - success states */
+  --color-sage-dark: #7A9B6C;         /* Darker sage for hover */
+  
+  --color-blue-gray: #B5C4C6;         /* Soft blue-gray - neutral elements */
+  --color-blue-gray-dark: #8FA5A8;    /* Darker blue-gray */
+  
+  /* === SEMANTIC COLORS === */
+  --color-success: #9CAF88;           /* Sage green */
+  --color-warning: #F4C430;           /* Sunflower yellow */
+  --color-error: #C96149;             /* Muted terracotta red */
+  --color-info: #B5C4C6;              /* Blue-gray */
+  
+  /* === TEXT COLORS === */
+  --color-text-primary: #3E2F23;      /* Dark brown - headings, primary */
+  --color-text-secondary: #8B6F47;    /* Medium brown - body text */
+  --color-text-muted: #C4A57B;        /* Light brown - disabled, subtle */
+  --color-text-inverse: #FFFFFF;      /* White text on dark backgrounds */
+  
+  /* === BORDER COLORS === */
+  --color-border-light: #E8D5C4;      /* Very light brown */
+  --color-border-medium: #C4A57B;     /* Medium brown */
+  --color-border-dark: #8B6F47;       /* Dark brown */
+  
+  /* === TYPOGRAPHY === */
+  --font-family-primary: Verdana, Geneva, sans-serif;
+  --font-family-display: Georgia, 'Times New Roman', serif; /* For branding only */
+  
+  --font-size-xs: 9px;
+  --font-size-sm: 10px;
+  --font-size-base: 11px;
+  --font-size-md: 12px;
+  --font-size-lg: 14px;
+  --font-size-xl: 16px;
+  --font-size-2xl: 20px;
+  --font-size-3xl: 24px;
+  
+  --line-height-tight: 1.2;
+  --line-height-base: 1.4;
+  --line-height-relaxed: 1.6;
+  
+  /* === SPACING === */
+  --spacing-xs: 4px;
+  --spacing-sm: 6px;
+  --spacing-md: 8px;
+  --spacing-lg: 12px;
+  --spacing-xl: 16px;
+  --spacing-2xl: 20px;
+  --spacing-3xl: 24px;
+  --spacing-4xl: 32px;
+  
+  /* === LAYOUT === */
+  --sidebar-width: 200px;
+  --navbar-height: 52px;
+  --tab-bar-height: 40px;
+  
+  /* === BORDERS === */
+  --border-radius-sm: 4px;
+  --border-radius-md: 6px;
+  --border-radius-lg: 8px;
+  --border-radius-full: 9999px;
+  
+  --border-width-thin: 1px;
+  --border-width-medium: 2px;
+  --border-width-thick: 3px;
+  
+  /* === SHADOWS === */
+  --shadow-sm: 0 1px 2px rgba(62, 47, 35, 0.08);
+  --shadow-md: 0 2px 4px rgba(62, 47, 35, 0.12);
+  --shadow-lg: 0 4px 8px rgba(62, 47, 35, 0.16);
+  --shadow-xl: 0 8px 16px rgba(62, 47, 35, 0.20);
+}
+
+/* === GLOBAL RESETS === */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family-primary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* === UTILITY CLASSES === */
+
+/* Text utilities */
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-muted { color: var(--color-text-muted); }
+.text-inverse { color: var(--color-text-inverse); }
+
+.text-xs { font-size: var(--font-size-xs); }
+.text-sm { font-size: var(--font-size-sm); }
+.text-base { font-size: var(--font-size-base); }
+.text-md { font-size: var(--font-size-md); }
+.text-lg { font-size: var(--font-size-lg); }
+.text-xl { font-size: var(--font-size-xl); }
+
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+
+/* Background utilities */
+.bg-primary { background-color: var(--color-bg-primary); }
+.bg-secondary { background-color: var(--color-bg-secondary); }
+.bg-sunflower { background-color: var(--color-sunflower); }
+.bg-sage { background-color: var(--color-sage); }
+
+/* Border utilities */
+.border { border: var(--border-width-thin) solid var(--color-border-medium); }
+.border-t { border-top: var(--border-width-thin) solid var(--color-border-medium); }
+.border-b { border-bottom: var(--border-width-thin) solid var(--color-border-medium); }
+.border-l { border-left: var(--border-width-thin) solid var(--color-border-medium); }
+.border-r { border-right: var(--border-width-thin) solid var(--color-border-medium); }
+
+/* Shadow utilities */
+.shadow-sm { box-shadow: var(--shadow-sm); }
+.shadow-md { box-shadow: var(--shadow-md); }
+.shadow-lg { box-shadow: var(--shadow-lg); }
+
+/* Spacing utilities */
+.p-xs { padding: var(--spacing-xs); }
+.p-sm { padding: var(--spacing-sm); }
+.p-md { padding: var(--spacing-md); }
+.p-lg { padding: var(--spacing-lg); }
+.p-xl { padding: var(--spacing-xl); }
+
+.m-xs { margin: var(--spacing-xs); }
+.m-sm { margin: var(--spacing-sm); }
+.m-md { margin: var(--spacing-md); }
+.m-lg { margin: var(--spacing-lg); }
+.m-xl { margin: var(--spacing-xl); }
+
+/* Animation utilities */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+

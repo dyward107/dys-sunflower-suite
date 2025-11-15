@@ -7,6 +7,7 @@ import { GlobalNavBar } from './GlobalNavBar';
 import { CaseSidebar } from './CaseSidebar';
 import { useCaseStore } from '../../stores/caseStore';
 import { sunflowerTheme } from '../../styles/sunflowerTheme';
+import { GlobalTimerBar } from '../moduleB';
 
 interface NavigationLayoutProps {
   children: React.ReactNode;
@@ -19,6 +20,9 @@ export const NavigationLayout: React.FC<NavigationLayoutProps> = ({ children }) 
     <div className="min-h-screen bg-gradient-to-br from-sunflower-cream via-sunflower-beige to-[#FFF2C0]">
       {/* TIER 1: Global Navigation Bar (Always Visible) */}
       <GlobalNavBar />
+      
+      {/* Global Timer Bar (Always Visible) */}
+      <GlobalTimerBar />
 
       <div className="flex">
         {/* TIER 2: Case-Specific Sidebar (Conditional) */}

@@ -1,3 +1,4 @@
+
 import initSqlJs, { Database } from 'sql.js';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -13,8 +14,8 @@ interface CaseInput {
   case_name: string;
   cm_number: string;
   lead_attorney: string;
-  primary_plaintiff_name: string;
-  primary_defendant_name: string;
+  primary_plaintiff_name?: string; // DEPRECATED - use case_persons table
+  primary_defendant_name?: string; // DEPRECATED - use case_persons table
   venue_court: string;
   venue_judge?: string;
   venue_clerk?: string;
@@ -532,7 +533,6 @@ export class DatabaseService {
     const query = `
       INSERT INTO cases (
         case_name, cm_number, lead_attorney,
-        primary_plaintiff_name, primary_defendant_name,
         venue_court, venue_judge, venue_clerk, venue_staff_attorney,
         phase, status, case_type, case_subtype,
         date_opened, date_of_loss, date_closed,
@@ -541,7 +541,6 @@ export class DatabaseService {
         notes
       ) VALUES (
         ?, ?, ?,
-        ?, ?,
         ?, ?, ?, ?,
         ?, ?, ?, ?,
         ?, ?, ?,
@@ -555,8 +554,6 @@ export class DatabaseService {
       caseData.case_name,
       caseData.cm_number,
       caseData.lead_attorney,
-      caseData.primary_plaintiff_name,
-      caseData.primary_defendant_name,
       caseData.venue_court,
       caseData.venue_judge || null,
       caseData.venue_clerk || null,
@@ -581,48 +578,8 @@ export class DatabaseService {
     const result = this.db.exec('SELECT last_insert_rowid() as id');
     const id = result[0].values[0][0] as number;
 
-    // Automatically add primary parties to case_parties table
-    // Add primary plaintiff
-    this.db.run(`
-      INSERT INTO case_parties (
-        case_id, party_type, party_name, is_corporate, is_primary,
-        is_insured, is_presuit, monitor_for_service,
-        service_date, answer_filed_date, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      id,
-      'plaintiff',
-      caseData.primary_plaintiff_name,
-      0, // is_corporate (default false)
-      1, // is_primary (TRUE)
-      0, // is_insured
-      0, // is_presuit
-      0, // monitor_for_service
-      null, // service_date
-      null, // answer_filed_date
-      null  // notes
-    ]);
-
-    // Add primary defendant
-    this.db.run(`
-      INSERT INTO case_parties (
-        case_id, party_type, party_name, is_corporate, is_primary,
-        is_insured, is_presuit, monitor_for_service,
-        service_date, answer_filed_date, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      id,
-      'defendant',
-      caseData.primary_defendant_name,
-      0, // is_corporate (default false)
-      1, // is_primary (TRUE)
-      0, // is_insured
-      0, // is_presuit
-      0, // monitor_for_service
-      null, // service_date
-      null, // answer_filed_date
-      null  // notes
-    ]);
+    // NOTE: Parties are now managed through case_persons table
+    // Primary plaintiff/defendant fields deprecated - parties added separately through UI
 
     this.save();
     return id;
@@ -820,34 +777,6 @@ export class DatabaseService {
     return id;
   }
 
-  async getCaseParties(caseId: number): Promise<any[]> {
-    if (!this.db) throw new Error('Database not initialized');
-
-    const result = this.db.exec(
-      'SELECT * FROM case_parties WHERE case_id = ? ORDER BY is_primary DESC, party_type, party_name',
-      [caseId]
-    );
-    if (result.length === 0) return [];
-
-    const columns = result[0].columns;
-    const values = result[0].values;
-    return values.map((row: any[]) => {
-      const obj: any = {};
-      columns.forEach((col: string, i: number) => {
-        obj[col] = row[i];
-      });
-
-      // Convert boolean fields from integers to proper booleans
-      const booleanFields = ['is_corporate', 'is_primary', 'is_insured', 'is_presuit', 'monitor_for_service'];
-      booleanFields.forEach(field => {
-        if (obj[field] !== undefined) {
-          obj[field] = Boolean(obj[field]);
-        }
-      });
-
-      return obj;
-    });
-  }
 
   async updateParty(id: number, updates: Partial<PartyInput>): Promise<boolean> {
     if (!this.db) throw new Error('Database not initialized');
@@ -1163,87 +1092,6 @@ export class DatabaseService {
     return id;
   }
 
-  async getCaseContacts(caseId: number): Promise<CaseContact[]> {
-    if (!this.db) throw new Error('Database not initialized');
-
-    // Check if party_id column exists to build appropriate query
-    const tableInfo = this.db.exec('PRAGMA table_info(case_contacts)');
-    const hasPartyId = tableInfo.length > 0 && 
-      tableInfo[0].values.some((row: any[]) => row[1] === 'party_id');
-
-    const query = `
-      SELECT 
-        cc.id, cc.case_id, cc.contact_id, 
-        ${hasPartyId ? 'cc.party_id,' : 'NULL as party_id,'}
-        cc.contact_type, cc.role, cc.is_primary,
-        cc.relationship_start_date, cc.relationship_end_date, cc.notes,
-        cc.created_at, cc.updated_at,
-        gc.name, gc.organization, gc.title,
-        gc.phone_primary, gc.phone_secondary,
-        gc.email_primary, gc.email_secondary,
-        gc.address, gc.preferred_contact, gc.best_times,
-        gc.do_not_contact, gc.is_favorite, gc.contact_type as global_contact_type, 
-        gc.role as global_role, gc.notes as contact_notes
-      FROM case_contacts cc
-      JOIN global_contacts gc ON cc.contact_id = gc.id
-      WHERE cc.case_id = ?
-      ORDER BY cc.contact_type, cc.role, gc.name
-    `;
-
-    const result = this.db.exec(query, [caseId]);
-    if (result.length === 0) return [];
-
-    const columns = result[0].columns;
-    const values = result[0].values;
-    return values.map((row: any[]) => {
-      const obj: any = {};
-      columns.forEach((col: string, i: number) => {
-        obj[col] = row[i];
-        // Convert boolean fields
-        if (col === 'is_primary' || col === 'do_not_contact' || col === 'is_favorite') {
-          obj[col] = row[i] === 1;
-        }
-      });
-
-      // Structure the joined contact data
-      const caseContact: CaseContact = {
-        id: obj.id,
-        case_id: obj.case_id,
-        contact_id: obj.contact_id,
-        party_id: obj.party_id,
-        contact_type: obj.contact_type,
-        role: obj.role,
-        is_primary: obj.is_primary,
-        relationship_start_date: obj.relationship_start_date,
-        relationship_end_date: obj.relationship_end_date,
-        notes: obj.notes,
-        created_at: obj.created_at,
-        updated_at: obj.updated_at,
-        contact: {
-          id: obj.contact_id,
-          name: obj.name,
-          organization: obj.organization,
-          title: obj.title,
-          phone_primary: obj.phone_primary,
-          phone_secondary: obj.phone_secondary,
-          email_primary: obj.email_primary,
-          email_secondary: obj.email_secondary,
-          address: obj.address,
-          preferred_contact: obj.preferred_contact,
-          best_times: obj.best_times,
-          do_not_contact: obj.do_not_contact,
-          is_favorite: obj.is_favorite,
-          contact_type: obj.global_contact_type,
-          role: obj.global_role,
-          notes: obj.contact_notes,
-          created_at: obj.created_at,
-          updated_at: obj.updated_at
-        }
-      };
-
-      return caseContact;
-    });
-  }
 
   async updateCaseContact(id: number, updates: Partial<CaseContactInput>): Promise<boolean> {
     if (!this.db) throw new Error('Database not initialized');
@@ -1968,8 +1816,8 @@ export class DatabaseService {
   async updateTask(id: string, updates: any): Promise<boolean> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const fields = [];
-    const values = [];
+    const fields: string[] = [];
+    const values: any[] = [];
 
     if (updates.title !== undefined) { fields.push('title = ?'); values.push(updates.title); }
     if (updates.description !== undefined) { fields.push('description = ?'); values.push(updates.description); }
@@ -2081,8 +1929,8 @@ export class DatabaseService {
   async updateTimeEntry(id: string, updates: any): Promise<boolean> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const fields = [];
-    const values = [];
+    const fields: string[] = [];
+    const values: any[] = [];
 
     if (updates.description !== undefined) { fields.push('description = ?'); values.push(updates.description); }
     if (updates.start_time !== undefined) { fields.push('start_time = ?'); values.push(updates.start_time); }
@@ -2261,6 +2109,462 @@ export class DatabaseService {
       });
       return obj;
     });
+  }
+
+  // ============================================================================
+  // CASE PERSONS (Unified Parties + Contacts)
+  // ============================================================================
+
+  async createCasePerson(personData: any): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    this.db.run(`
+      INSERT INTO case_persons (
+        case_id, person_type, name, is_entity, phone, email, address, organization,
+        party_role, is_primary_party, we_represent, is_insured, is_corporate,
+        is_presuit, monitor_for_service, service_date, answer_filed_date,
+        date_of_birth, ssn_last_four, drivers_license,
+        bar_number, specialty, firm_name, role, alignment,
+        global_contact_id, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      personData.case_id,
+      personData.person_type,
+      personData.name,
+      personData.is_entity || 0,
+      personData.phone || null,
+      personData.email || null,
+      personData.address || null,
+      personData.organization || null,
+      personData.party_role || null,
+      personData.is_primary_party || 0,
+      personData.we_represent || 0,
+      personData.is_insured || 0,
+      personData.is_corporate || 0,
+      personData.is_presuit || 0,
+      personData.monitor_for_service || 0,
+      personData.service_date || null,
+      personData.answer_filed_date || null,
+      personData.date_of_birth || null,
+      personData.ssn_last_four || null,
+      personData.drivers_license || null,
+      personData.bar_number || null,
+      personData.specialty || null,
+      personData.firm_name || null,
+      personData.role || null,
+      personData.alignment || null,
+      personData.global_contact_id || null,
+      personData.notes || null
+    ]);
+
+    const result = this.db.exec('SELECT last_insert_rowid() as id');
+    this.save();
+    return result[0].values[0][0] as number;
+  }
+
+  async getCasePersons(caseId: number): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec(
+      'SELECT * FROM case_persons WHERE case_id = ? ORDER BY person_type, name',
+      [caseId]
+    );
+
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
+  }
+
+  async getCasePersonById(personId: number): Promise<any | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec('SELECT * FROM case_persons WHERE id = ?', [personId]);
+
+    if (result.length === 0 || result[0].values.length === 0) return null;
+
+    const columns = result[0].columns;
+    const row = result[0].values[0];
+    const obj: any = {};
+    columns.forEach((col: string, i: number) => {
+      obj[col] = row[i];
+    });
+    return obj;
+  }
+
+  async getCaseParties(caseId: number, partyRole?: string): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    let query = 'SELECT * FROM case_persons WHERE case_id = ? AND person_type = ?';
+    const params: any[] = [caseId, 'party'];
+
+    if (partyRole) {
+      query += ' AND party_role = ?';
+      params.push(partyRole);
+    }
+
+    query += ' ORDER BY is_primary_party DESC, name';
+
+    const result = this.db.exec(query, params);
+
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
+  }
+
+  async getInsuredsWeRepresent(caseId: number): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec(
+      `SELECT * FROM case_persons 
+       WHERE case_id = ? AND person_type = 'party' AND party_role = 'defendant' AND we_represent = 1
+       ORDER BY name`,
+      [caseId]
+    );
+
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
+  }
+
+  async getCaseContacts(caseId: number, personType?: string): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    let query = 'SELECT * FROM case_persons WHERE case_id = ? AND person_type != ?';
+    const params: any[] = [caseId, 'party'];
+
+    if (personType) {
+      query += ' AND person_type = ?';
+      params.push(personType);
+    }
+
+    query += ' ORDER BY person_type, name';
+
+    const result = this.db.exec(query, params);
+
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
+  }
+
+  async updateCasePerson(personId: number, updates: any): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const setClauses: string[] = [];
+    const values: any[] = [];
+
+    // Build SET clause dynamically based on provided updates
+    Object.keys(updates).forEach((key) => {
+      setClauses.push(`${key} = ?`);
+      values.push(updates[key]);
+    });
+
+    values.push(personId);
+
+    this.db.run(
+      `UPDATE case_persons SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      values
+    );
+
+    this.save();
+  }
+
+  async deleteCasePerson(personId: number): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    this.db.run('DELETE FROM case_persons WHERE id = ?', [personId]);
+    this.save();
+  }
+
+  // ============================================================================
+  // CORRESPONDENCE LOG
+  // ============================================================================
+
+  async createCorrespondence(entryData: any): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    this.db.run(`
+      INSERT INTO correspondence_log (
+        case_id, person_id, method, direction, date, time, subject, description, notes, attachment_path
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      entryData.case_id,
+      entryData.person_id || null,
+      entryData.method,
+      entryData.direction,
+      entryData.date,
+      entryData.time || null,
+      entryData.subject || null,
+      entryData.description,
+      entryData.notes || null,
+      entryData.attachment_path || null
+    ]);
+
+    const result = this.db.exec('SELECT last_insert_rowid() as id');
+    this.save();
+    return result[0].values[0][0] as number;
+  }
+
+  async getAllCorrespondence(filters?: any): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    let query = 'SELECT * FROM correspondence_log WHERE 1=1';
+    const params: any[] = [];
+
+    if (filters?.caseId) {
+      query += ' AND case_id = ?';
+      params.push(filters.caseId);
+    }
+
+    if (filters?.personId) {
+      query += ' AND person_id = ?';
+      params.push(filters.personId);
+    }
+
+    if (filters?.dateStart) {
+      query += ' AND date >= ?';
+      params.push(filters.dateStart);
+    }
+
+    if (filters?.dateEnd) {
+      query += ' AND date <= ?';
+      params.push(filters.dateEnd);
+    }
+
+    query += ' ORDER BY date DESC, time DESC';
+
+    const result = this.db.exec(query, params);
+
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
+  }
+
+  async getCaseCorrespondence(caseId: number): Promise<any[]> {
+    return this.getAllCorrespondence({ caseId });
+  }
+
+  async getCorrespondenceById(entryId: number): Promise<any | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec('SELECT * FROM correspondence_log WHERE id = ?', [entryId]);
+
+    if (result.length === 0 || result[0].values.length === 0) return null;
+
+    const columns = result[0].columns;
+    const row = result[0].values[0];
+    const obj: any = {};
+    columns.forEach((col: string, i: number) => {
+      obj[col] = row[i];
+    });
+    return obj;
+  }
+
+  async updateCorrespondence(entryId: number, updates: any): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const setClauses: string[] = [];
+    const values: any[] = [];
+
+    Object.keys(updates).forEach((key) => {
+      setClauses.push(`${key} = ?`);
+      values.push(updates[key]);
+    });
+
+    values.push(entryId);
+
+    this.db.run(
+      `UPDATE correspondence_log SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      values
+    );
+
+    this.save();
+  }
+
+  async deleteCorrespondence(entryId: number): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    this.db.run('DELETE FROM correspondence_log WHERE id = ?', [entryId]);
+    this.save();
+  }
+
+  // ============================================================================
+  // GLOBAL CONTACTS
+  // ============================================================================
+
+  async createGlobalContact(contactData: any): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    this.db.run(`
+      INSERT INTO global_contacts (
+        name, organization, title, phone_primary, phone_secondary, email_primary, email_secondary,
+        address, contact_type, specialty, bar_number, preferred_contact, best_times, is_favorite, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      contactData.name,
+      contactData.organization || null,
+      contactData.title || null,
+      contactData.phone_primary || null,
+      contactData.phone_secondary || null,
+      contactData.email_primary || null,
+      contactData.email_secondary || null,
+      contactData.address || null,
+      contactData.contact_type || null,
+      contactData.specialty || null,
+      contactData.bar_number || null,
+      contactData.preferred_contact || null,
+      contactData.best_times || null,
+      contactData.is_favorite || 0,
+      contactData.notes || null
+    ]);
+
+    const result = this.db.exec('SELECT last_insert_rowid() as id');
+    this.save();
+    return result[0].values[0][0] as number;
+  }
+
+  async getGlobalContacts(filters?: any): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    let query = 'SELECT * FROM global_contacts WHERE 1=1';
+    const params: any[] = [];
+
+    if (filters?.contactType) {
+      query += ' AND contact_type = ?';
+      params.push(filters.contactType);
+    }
+
+    if (filters?.isFavorite !== undefined) {
+      query += ' AND is_favorite = ?';
+      params.push(filters.isFavorite ? 1 : 0);
+    }
+
+    query += ' ORDER BY is_favorite DESC, name';
+
+    const result = this.db.exec(query, params);
+
+    if (result.length === 0) return [];
+
+    const columns = result[0].columns;
+    const values = result[0].values;
+    return values.map((row: any[]) => {
+      const obj: any = {};
+      columns.forEach((col: string, i: number) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
+  }
+
+  async getGlobalContactById(contactId: number): Promise<any | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec('SELECT * FROM global_contacts WHERE id = ?', [contactId]);
+
+    if (result.length === 0 || result[0].values.length === 0) return null;
+
+    const columns = result[0].columns;
+    const row = result[0].values[0];
+    const obj: any = {};
+    columns.forEach((col: string, i: number) => {
+      obj[col] = row[i];
+    });
+    return obj;
+  }
+
+  async updateGlobalContact(contactId: number, updates: any): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const setClauses: string[] = [];
+    const values: any[] = [];
+
+    Object.keys(updates).forEach((key) => {
+      setClauses.push(`${key} = ?`);
+      values.push(updates[key]);
+    });
+
+    values.push(contactId);
+
+    this.db.run(
+      `UPDATE global_contacts SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      values
+    );
+
+    this.save();
+  }
+
+  async deleteGlobalContact(contactId: number): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    this.db.run('DELETE FROM global_contacts WHERE id = ?', [contactId]);
+    this.save();
+  }
+
+  async promoteToGlobalContact(personId: number): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    // Get the case person
+    const person = await this.getCasePersonById(personId);
+    if (!person) throw new Error('Person not found');
+
+    // Create global contact from person data
+    const globalContactId = await this.createGlobalContact({
+      name: person.name,
+      organization: person.organization || person.firm_name,
+      phone_primary: person.phone,
+      email_primary: person.email,
+      address: person.address,
+      contact_type: person.person_type,
+      specialty: person.specialty,
+      bar_number: person.bar_number,
+      notes: person.notes
+    });
+
+    // Update the case person to link to global contact
+    await this.updateCasePerson(personId, {
+      global_contact_id: globalContactId
+    });
+
+    return globalContactId;
   }
 
   close(): void {

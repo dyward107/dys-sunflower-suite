@@ -42,7 +42,7 @@ interface TaskStore {
 
   // Task Actions
   loadTasks: (caseId?: number, filters?: TaskFilters) => Promise<void>;
-  loadTaskById: (id: string) => Promise<void>;
+  loadTaskById: (id: string) => Promise<Task | undefined>;
   createTask: (taskData: TaskInput) => Promise<string>;
   updateTask: (id: string, updates: Partial<TaskInput>) => Promise<void>;
   completeTask: (id: string) => Promise<void>;
@@ -54,7 +54,7 @@ interface TaskStore {
   startTimer: (taskId: string) => void;
   pauseTimer: () => void;
   resumeTimer: () => void;
-  stopTimer: () => void;
+  stopTimer: () => Promise<void>;
   getElapsedTime: () => number;
 
   // Time Entry Actions
@@ -112,9 +112,20 @@ export const useTaskStore = create<TaskStore>()(
           const task = await callIPC(() => window.electron.db.getTaskById(id));
           if (task) {
             set({ selectedTask: task });
+            
+            // Also update the task in the tasks array if it exists
+            const currentTasks = get().tasks;
+            const taskIndex = currentTasks.findIndex(t => t.id === id);
+            if (taskIndex !== -1) {
+              const updatedTasks = [...currentTasks];
+              updatedTasks[taskIndex] = task;
+              set({ tasks: updatedTasks });
+            }
+            
             await get().loadTimeEntries(id);
           }
           set({ isLoading: false });
+          return task;
         } catch (error: any) {
           set({ error: error.message, isLoading: false });
         }
@@ -241,7 +252,55 @@ export const useTaskStore = create<TaskStore>()(
         });
       },
 
-      stopTimer: () => {
+      stopTimer: async () => {
+        const { activeTimerId, timerStartTime, timerElapsedBeforePause, timerPausedAt } = get();
+        
+        if (!activeTimerId || !timerStartTime) {
+          // Clear timer state even if no active timer
+          set({
+            activeTimerId: null,
+            timerStartTime: null,
+            timerPausedAt: null,
+            timerElapsedBeforePause: 0,
+          });
+          return;
+        }
+
+        // Calculate total elapsed time
+        const endTime = timerPausedAt || Date.now();
+        const totalElapsed = endTime - timerStartTime + timerElapsedBeforePause;
+        const totalMinutes = totalElapsed / (1000 * 60); // Convert to minutes (decimal)
+        
+        // Round to nearest 0.1 hour (6-minute increments) for legal billing
+        // 0.1 hour = 6 minutes, so round up to nearest 6-minute block
+        const tenthHourBlocks = Math.ceil(totalMinutes / 6); // Round UP to nearest 0.1 hour
+        const roundedMinutes = tenthHourBlocks * 6; // Convert back to minutes
+        
+        // Only create time entry if there's any time (even 1 second rounds to 0.1 hour)
+        if (roundedMinutes > 0) {
+          try {
+            const startDate = new Date(timerStartTime);
+            const stopDate = new Date(endTime);
+            
+            const timeEntryData: TimeEntryInput = {
+              task_id: activeTimerId,
+              description: 'Timer session',
+              start_time: `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`,
+              stop_time: `${stopDate.getHours().toString().padStart(2, '0')}:${stopDate.getMinutes().toString().padStart(2, '0')}`,
+              duration_minutes: roundedMinutes,
+              entry_date: startDate.toISOString().split('T')[0],
+              is_billable: true,
+            };
+            
+            // Create the time entry automatically
+            await get().createTimeEntry(timeEntryData);
+            console.log(`✅ Auto-saved timer session: ${(roundedMinutes / 60).toFixed(1)} hours (rounded to 0.1 hour increments)`);
+          } catch (error) {
+            console.error('❌ Failed to auto-save timer session:', error);
+          }
+        }
+
+        // Clear timer state
         set({
           activeTimerId: null,
           timerStartTime: null,

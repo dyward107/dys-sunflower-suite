@@ -38,8 +38,8 @@ export interface CaseInput {
   case_name: string;
   cm_number: string;
   lead_attorney: string;
-  primary_plaintiff_name: string;
-  primary_defendant_name: string;
+  primary_plaintiff_name?: string; // DEPRECATED - use case_persons table
+  primary_defendant_name?: string; // DEPRECATED - use case_persons table
   venue_court: string;
   venue_judge?: string;
   venue_clerk?: string;

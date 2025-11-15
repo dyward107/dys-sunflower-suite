@@ -3,18 +3,26 @@
 // Main application with routing
 
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import './styles/design-system.css';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { MainLayout } from './components/layout/MainLayout';
+import { CaseLayout } from './components/layout/CaseLayout';
 import { NavigationLayout } from './components/navigation/NavigationLayout';
 import { CasePage } from './components/navigation/CasePage';
 import { GlobalPage } from './components/navigation/GlobalPage';
 import { CaseList } from './components/moduleA/CaseList';
 import { CaseDetail } from './components/moduleA/CaseDetail';
 import { CaseForm } from './components/moduleA/CaseForm';
+import { CaseOverview } from './components/moduleA/CaseOverview';
 import { ContactManager } from './components/moduleA/ContactManager';
 import { CaseContactManager } from './components/moduleA/CaseContactManager';
+import { PartiesAndContacts } from './components/moduleA/PartiesAndContacts';
 import { PartiesTab } from './components/moduleA/PartiesTab';
+import { Policies } from './components/moduleA/Policies';
 import { PoliciesTab } from './components/moduleA/PoliciesTab';
+import { Correspondence } from './components/moduleA/Correspondence';
 import { CaseListLayout } from './components/layout/CaseListLayout';
+import { TaskList } from './components/moduleB';
 
 // Simple error boundary for debugging
 class ErrorBoundary extends React.Component<
@@ -59,31 +67,44 @@ class ErrorBoundary extends React.Component<
   }
 }
 
+// Redirect component for case detail to overview
+const CaseRedirect: React.FC = () => {
+  const { caseId } = useParams<{ caseId: string }>();
+  return <Navigate to={`/cases/${caseId}/overview`} replace />;
+};
+
 function App() {
   return (
     <ErrorBoundary>
       <Router>
-        <NavigationLayout>
+        <MainLayout>
           <Routes>
-            {/* Default route - redirect to cases */}
-            <Route path="/" element={<Navigate to="/cases" replace />} />
+            {/* Default route - Show case manager */}
+            <Route path="/" element={<CaseList />} />
 
             {/* Case routes - Your beautiful sunflower design applied! */}
             <Route path="/cases" element={<CaseList />} />
             <Route path="/cases/new" element={<CaseForm />} />
-            <Route path="/cases/:caseId" element={<CaseDetail />} />
+            
+            {/* Redirect case detail to overview */}
+            <Route path="/cases/:caseId" element={<CaseRedirect />} />
             <Route path="/cases/:caseId/edit" element={<CaseForm />} />
 
-            {/* Case-specific routes (Tier 2 navigation) */}
+            {/* Case-specific routes (Tier 2 navigation) - All wrapped with CaseLayout */}
+            <Route path="/cases/:caseId/overview" element={
+              <CaseLayout>
+                <CaseOverview />
+              </CaseLayout>
+            } />
             <Route path="/cases/:caseId/parties" element={
-              <CasePage title="Parties" icon="👥">
-                <PartiesTab />
-              </CasePage>
+              <CaseLayout>
+                <PartiesAndContacts />
+              </CaseLayout>
             } />
             <Route path="/cases/:caseId/policies" element={
-              <CasePage title="Policies" icon="📄">
-                <PoliciesTab />
-              </CasePage>
+              <CaseLayout>
+                <Policies />
+              </CaseLayout>
             } />
             <Route path="/cases/:caseId/contacts" element={<CaseContactManager />} />
             <Route path="/cases/:caseId/timeline" element={
@@ -144,17 +165,7 @@ function App() {
 
             {/* Global routes (Tier 1 navigation) */}
             <Route path="/contacts" element={<ContactManager />} />
-            <Route path="/tasks" element={
-              <GlobalPage title="Task Manager" icon="✅">
-                <div className="text-center py-8">
-                  <h2 className="text-xl font-semibold text-sunflower-brown mb-4">Practice-wide Task Management</h2>
-                  <p className="text-sunflower-brown/70">
-                    Manage tasks across all cases and practice areas. Track deadlines, assignments, and priorities.
-                  </p>
-                  <p className="text-sm text-sunflower-brown/50 mt-4">Coming soon...</p>
-                </div>
-              </GlobalPage>
-            } />
+            <Route path="/tasks" element={<TaskList />} />
             <Route path="/calendar" element={
               <GlobalPage title="Calendar" icon="📅">
                 <div className="text-center py-8">
@@ -166,17 +177,7 @@ function App() {
                 </div>
               </GlobalPage>
             } />
-            <Route path="/correspondence" element={
-              <GlobalPage title="Correspondence Log" icon="📧">
-                <div className="text-center py-8">
-                  <h2 className="text-xl font-semibold text-sunflower-brown mb-4">Global Correspondence</h2>
-                  <p className="text-sunflower-brown/70">
-                    Track all correspondence across cases. Letters, emails, and communications log.
-                  </p>
-                  <p className="text-sm text-sunflower-brown/50 mt-4">Coming soon...</p>
-                </div>
-              </GlobalPage>
-            } />
+            <Route path="/correspondence" element={<Correspondence />} />
             <Route path="/discovery" element={
               <GlobalPage title="Discovery & Evidence Manager" icon="🔍">
                 <div className="text-center py-8">
@@ -206,7 +207,7 @@ function App() {
             {/* Catch all - redirect to cases */}
             <Route path="*" element={<Navigate to="/cases" replace />} />
           </Routes>
-        </NavigationLayout>
+        </MainLayout>
       </Router>
     </ErrorBoundary>
   );
