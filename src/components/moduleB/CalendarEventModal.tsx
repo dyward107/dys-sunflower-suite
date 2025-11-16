@@ -16,6 +16,7 @@ import {
   Bell,
   Link as LinkIcon,
 } from 'lucide-react';
+import '../../styles/design-system.css';
 
 interface CalendarEventModalProps {
   isOpen: boolean;
@@ -337,26 +338,74 @@ export function CalendarEventModal({ isOpen, onClose, taskId, calendarEvent }: C
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        {/* Background overlay */}
-        <div
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-          onClick={handleCancel}
-        />
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 9999,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 'var(--spacing-md)',
+    }}>
+      {/* Background overlay */}
+      <div
+        onClick={handleCancel}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(62, 47, 35, 0.85)',
+          cursor: 'pointer',
+        }}
+      />
 
-        {/* Modal content */}
-        <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full sm:p-6">
+      {/* Modal content */}
+      <div style={{
+        position: 'relative',
+        width: '90vw',
+        maxWidth: '700px',
+        maxHeight: '90vh',
+        backgroundColor: 'var(--color-bg-primary)',
+        borderRadius: 'var(--border-radius-lg)',
+        border: '3px solid var(--color-sunflower)',
+        boxShadow: 'var(--shadow-xl)',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}>
+        {/* Scrollable content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-xl)' }}>
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center">
-              <Calendar className="h-6 w-6 text-blue-600 mr-3" />
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 'var(--spacing-lg)',
+            paddingBottom: 'var(--spacing-md)',
+            borderBottom: '2px solid var(--color-border-light)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+              <Calendar size={24} style={{ color: 'var(--color-sunflower)' }} />
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h2 style={{
+                  fontSize: 'var(--font-size-xl)',
+                  fontWeight: 600,
+                  color: 'var(--color-text-primary)',
+                  margin: 0,
+                }}>
                   {calendarEvent ? 'Edit Calendar Event' : 'Add to Calendar'}
-                </h3>
+                </h2>
                 {selectedTask && (
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p style={{
+                    fontSize: 'var(--font-size-sm)',
+                    color: 'var(--color-text-secondary)',
+                    margin: 'var(--spacing-xs) 0 0 0',
+                  }}>
                     Linked to: {selectedTask.title}
                   </p>
                 )}
@@ -364,27 +413,48 @@ export function CalendarEventModal({ isOpen, onClose, taskId, calendarEvent }: C
             </div>
             <button
               onClick={handleCancel}
-              className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{
+                padding: 'var(--spacing-xs)',
+                backgroundColor: 'transparent',
+                border: 'none',
+                borderRadius: 'var(--border-radius-md)',
+                cursor: 'pointer',
+                color: 'var(--color-text-muted)',
+              }}
             >
-              <X className="h-6 w-6" />
+              <X size={20} />
             </button>
           </div>
 
           {/* Error Display */}
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-                <span className="text-red-800">{error}</span>
-              </div>
+            <div style={{
+              padding: 'var(--spacing-md)',
+              backgroundColor: 'var(--color-error)',
+              color: 'white',
+              borderRadius: 'var(--border-radius-md)',
+              fontSize: 'var(--font-size-sm)',
+              marginBottom: 'var(--spacing-lg)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--spacing-sm)',
+            }}>
+              <AlertCircle size={16} />
+              <span>{error}</span>
             </div>
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
             {/* Title */}
             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+              <label style={{
+                display: 'block',
+                fontSize: 'var(--font-size-sm)',
+                fontWeight: 600,
+                color: 'var(--color-text-primary)',
+                marginBottom: 'var(--spacing-xs)',
+              }}>
                 Event Title *
               </label>
               <input
@@ -392,14 +462,25 @@ export function CalendarEventModal({ isOpen, onClose, taskId, calendarEvent }: C
                 id="title"
                 value={formData.title}
                 onChange={(e) => handleInputChange('title', e.target.value)}
-                className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
-                  validationErrors.title ? 'border-red-300' : 'border-gray-300'
-                }`}
+                style={{
+                  width: '100%',
+                  padding: 'var(--spacing-sm)',
+                  border: `2px solid ${validationErrors.title ? 'var(--color-error)' : 'var(--color-border-medium)'}`,
+                  borderRadius: 'var(--border-radius-md)',
+                  fontSize: 'var(--font-size-sm)',
+                  fontFamily: 'var(--font-family-primary)',
+                }}
                 placeholder="Enter event title"
                 maxLength={200}
               />
               {validationErrors.title && (
-                <p className="mt-1 text-sm text-red-600">{validationErrors.title}</p>
+                <p style={{
+                  marginTop: 'var(--spacing-xs)',
+                  fontSize: 'var(--font-size-sm)',
+                  color: 'var(--color-error)',
+                }}>
+                  {validationErrors.title}
+                </p>
               )}
             </div>
 
