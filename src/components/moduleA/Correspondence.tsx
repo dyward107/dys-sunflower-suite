@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Mail, Phone, MessageSquare, Calendar, User, Building, Filter, Search, ExternalLink } from 'lucide-react';
+import { Plus, Mail, Phone, MessageSquare, User, Search, ExternalLink, Edit, Trash2 } from 'lucide-react';
 import type { CorrespondenceEntry, CorrespondenceEntryInput, CorrespondenceMethod, CorrespondenceDirection } from '../../types/ModuleA-Unified';
 import type { Case } from '../../types/ModuleA';
 import type { CasePerson } from '../../types/ModuleA-Unified';
@@ -410,6 +410,7 @@ export const Correspondence: React.FC = () => {
                 <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
                   <button
                     onClick={() => setEditingEntry(entry)}
+                    title="Edit Entry"
                     style={{
                       padding: 'var(--spacing-xs)',
                       backgroundColor: 'var(--color-blue-gray)',
@@ -422,10 +423,11 @@ export const Correspondence: React.FC = () => {
                       justifyContent: 'center',
                     }}
                   >
-                    <Mail size={14} />
+                    <Edit size={14} />
                   </button>
                   <button
                     onClick={() => handleDeleteEntry(entry.id)}
+                    title="Delete Entry"
                     style={{
                       padding: 'var(--spacing-xs)',
                       backgroundColor: 'var(--color-error)',
@@ -438,7 +440,7 @@ export const Correspondence: React.FC = () => {
                       justifyContent: 'center',
                     }}
                   >
-                    <MessageSquare size={14} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>
@@ -501,18 +503,16 @@ interface CorrespondenceFormModalProps {
 
 const CorrespondenceFormModal: React.FC<CorrespondenceFormModalProps> = ({ entry, cases, onSave, onCancel }) => {
   const [formData, setFormData] = useState<CorrespondenceEntryInput>({
-    case_id: 0,
-    person_id: null,
-    method: 'email' as CorrespondenceMethod,
-    direction: 'outbound' as CorrespondenceDirection,
-    date: new Date().toISOString().split('T')[0],
-    time: '',
-    subject: '',
-    description: '',
-    notes: '',
-    attachment_path: '',
-    created_by: 'user',
-    ...entry,
+    case_id: entry?.case_id || 0,
+    person_id: entry?.person_id || null,
+    method: entry?.method || 'email',
+    direction: entry?.direction || 'outbound',
+    date: entry?.date || new Date().toISOString().split('T')[0],
+    time: entry?.time || '',
+    subject: entry?.subject || '',
+    description: entry?.description || '',
+    notes: entry?.notes || '',
+    attachment_path: entry?.attachment_path || '',
   });
 
   const [casePersons, setCasePersons] = useState<CasePerson[]>([]);
@@ -665,8 +665,8 @@ const CorrespondenceFormModal: React.FC<CorrespondenceFormModalProps> = ({ entry
                   Case *
                 </label>
                 <select
-                  value={formData.case_id}
-                  onChange={(e) => setFormData(prev => ({ ...prev, case_id: parseInt(e.target.value) }))}
+                  value={formData.case_id || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, case_id: parseInt(e.target.value, 10) }))}
                   style={{
                     width: '100%',
                     padding: 'var(--spacing-sm)',
@@ -697,8 +697,8 @@ const CorrespondenceFormModal: React.FC<CorrespondenceFormModalProps> = ({ entry
                   Contact Person
                 </label>
                 <select
-                  value={formData.person_id || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, person_id: e.target.value ? parseInt(e.target.value) : null }))}
+                  value={formData.person_id ?? ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, person_id: e.target.value ? parseInt(e.target.value, 10) : null }))}
                   style={{
                     width: '100%',
                     padding: 'var(--spacing-sm)',

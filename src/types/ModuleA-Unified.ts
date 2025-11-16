@@ -170,9 +170,9 @@ export type CorrespondenceMethod = 'call' | 'email' | 'letter' | 'text' | 'in_pe
 export type CorrespondenceDirection = 'inbound' | 'outbound';
 
 export interface CorrespondenceEntry {
-  id: string;
-  case_id: string;
-  person_id: string | null;
+  id: number;
+  case_id: number;
+  person_id: number | null;
   
   method: CorrespondenceMethod;
   direction: CorrespondenceDirection;
@@ -191,8 +191,8 @@ export interface CorrespondenceEntry {
 }
 
 export interface CorrespondenceEntryInput {
-  case_id: string;
-  person_id?: string;
+  case_id: number;
+  person_id?: number | null;
   method: CorrespondenceMethod;
   direction: CorrespondenceDirection;
   date: string;
