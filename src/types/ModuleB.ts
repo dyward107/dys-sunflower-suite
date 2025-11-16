@@ -120,6 +120,25 @@ export interface TimeEntryInput {
 }
 
 // ============================================================================
+// TASK NOTE TYPES
+// ============================================================================
+
+export interface TaskNote {
+  id: string;
+  task_id: string;
+  note_text: string;
+  author: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskNoteInput {
+  task_id: string;
+  note_text: string;
+  author?: string;
+}
+
+// ============================================================================
 // CALENDAR EVENT TYPES
 // ============================================================================
 

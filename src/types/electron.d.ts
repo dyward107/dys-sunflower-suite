@@ -14,7 +14,8 @@ import {
 
 import {
   Task, TaskInput, TaskFilters, TimeEntry, TimeEntryInput,
-  TaskGroup, TaskGroupInput, CalendarEvent, CalendarEventInput
+  TaskNote, TaskNoteInput, TaskGroup, TaskGroupInput, 
+  CalendarEvent, CalendarEventInput
 } from './ModuleB';
 
 export interface ElectronAPI {
@@ -139,6 +140,12 @@ export interface ElectronAPI {
     getTimeEntries: (taskId: string) => Promise<TimeEntry[]>;
     updateTimeEntry: (id: string, updates: Partial<TimeEntryInput>) => Promise<boolean>;
     deleteTimeEntry: (id: string) => Promise<boolean>;
+
+    // Task Notes
+    createTaskNote: (noteData: TaskNoteInput) => Promise<string>;
+    getTaskNotes: (taskId: string) => Promise<TaskNote[]>;
+    updateTaskNote: (id: string, updates: Partial<TaskNoteInput>) => Promise<boolean>;
+    deleteTaskNote: (id: string) => Promise<boolean>;
 
     // Task Groups
     getTaskGroups: (caseId: number) => Promise<TaskGroup[]>;

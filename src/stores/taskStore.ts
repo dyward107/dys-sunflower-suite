@@ -6,7 +6,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type {
   Task, TaskInput, TaskFilters, TimeEntry, TimeEntryInput,
-  TaskGroup, TaskGroupInput, CalendarEvent, CalendarEventInput
+  TaskNote, TaskNoteInput, TaskGroup, TaskGroupInput, 
+  CalendarEvent, CalendarEventInput
 } from '../types/ModuleB';
 
 // Simple IPC helper - sql.js is pure JavaScript, no native bindings needed
@@ -17,18 +18,13 @@ const callIPC = async <T>(fn: () => Promise<T>): Promise<T> => {
   return await fn();
 };
 
-interface TimerState {
-  activeTimerId: string | null;
-  timerStartTime: number | null;
-  timerPausedAt: number | null;
-  timerElapsedBeforePause: number;
-}
 
 interface TaskStore {
   // State
   tasks: Task[];
   selectedTask: Task | null;
   timeEntries: TimeEntry[];
+  taskNotes: TaskNote[];
   taskGroups: TaskGroup[];
   calendarEvents: CalendarEvent[];
   isLoading: boolean;
@@ -63,6 +59,12 @@ interface TaskStore {
   updateTimeEntry: (id: string, updates: Partial<TimeEntryInput>) => Promise<void>;
   deleteTimeEntry: (id: string) => Promise<void>;
 
+  // Task Note Actions
+  createTaskNote: (noteData: TaskNoteInput) => Promise<string>;
+  loadTaskNotes: (taskId: string) => Promise<void>;
+  updateTaskNote: (id: string, updates: Partial<TaskNoteInput>) => Promise<void>;
+  deleteTaskNote: (id: string) => Promise<void>;
+
   // Task Group Actions
   loadTaskGroups: (caseId: number) => Promise<void>;
   createTaskGroup: (groupData: TaskGroupInput) => Promise<string>;
@@ -83,6 +85,7 @@ export const useTaskStore = create<TaskStore>()(
       tasks: [],
       selectedTask: null,
       timeEntries: [],
+      taskNotes: [],
       taskGroups: [],
       calendarEvents: [],
       isLoading: false,
@@ -125,9 +128,10 @@ export const useTaskStore = create<TaskStore>()(
             await get().loadTimeEntries(id);
           }
           set({ isLoading: false });
-          return task;
+          return task || undefined;
         } catch (error: any) {
           set({ error: error.message, isLoading: false });
+          return undefined;
         }
       },
 
@@ -135,7 +139,7 @@ export const useTaskStore = create<TaskStore>()(
         set({ isLoading: true, error: null });
         try {
           const id = await callIPC(() => window.electron.db.createTask(taskData));
-          await get().loadTasks(taskData.case_id);
+          await get().loadTasks(typeof taskData.case_id === 'string' ? parseInt(taskData.case_id) : taskData.case_id);
           set({ isLoading: false });
           return id;
         } catch (error: any) {
@@ -374,6 +378,61 @@ export const useTaskStore = create<TaskStore>()(
           if (currentEntry) {
             await get().loadTimeEntries(currentEntry.task_id);
             await get().loadTaskById(currentEntry.task_id);
+          }
+          
+          set({ isLoading: false });
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+        }
+      },
+
+      // Task Note Actions
+      createTaskNote: async (noteData: TaskNoteInput) => {
+        set({ isLoading: true, error: null });
+        try {
+          const id = await callIPC(() => window.electron.db.createTaskNote(noteData));
+          await get().loadTaskNotes(noteData.task_id);
+          set({ isLoading: false });
+          return id;
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+          throw error;
+        }
+      },
+
+      loadTaskNotes: async (taskId: string) => {
+        try {
+          const taskNotes = await callIPC(() => window.electron.db.getTaskNotes(taskId));
+          set({ taskNotes });
+        } catch (error: any) {
+          set({ error: error.message });
+        }
+      },
+
+      updateTaskNote: async (id: string, updates: Partial<TaskNoteInput>) => {
+        set({ isLoading: true, error: null });
+        try {
+          await callIPC(() => window.electron.db.updateTaskNote(id, updates));
+          
+          const currentNote = get().taskNotes.find(n => n.id === id);
+          if (currentNote) {
+            await get().loadTaskNotes(currentNote.task_id);
+          }
+          
+          set({ isLoading: false });
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+        }
+      },
+
+      deleteTaskNote: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const currentNote = get().taskNotes.find(n => n.id === id);
+          await callIPC(() => window.electron.db.deleteTaskNote(id));
+          
+          if (currentNote) {
+            await get().loadTaskNotes(currentNote.task_id);
           }
           
           set({ isLoading: false });

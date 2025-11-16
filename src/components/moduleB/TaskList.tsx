@@ -552,8 +552,7 @@ export function TaskList() {
                 return (
                   <tr
                     key={task.id}
-                    onClick={() => setShowTaskDetail(task.id)}
-                    className={`hover:bg-gray-100 cursor-pointer ${bgClass} ${textClass}`}
+                    className={`hover:bg-gray-50 ${bgClass} ${textClass}`}
                   >
                 
                   {/* Task & Due Date */}

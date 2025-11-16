@@ -903,6 +903,54 @@ ipcMain.handle('db:deleteTimeEntry', async (event, id) => {
 });
 
 // ============================================================================
+// IPC HANDLERS - MODULE B: TASK NOTES
+// ============================================================================
+
+ipcMain.handle('db:createTaskNote', async (event, noteData) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const noteId = await dbService.createTaskNote(noteData);
+    return noteId;
+  } catch (error: any) {
+    console.error('Error creating task note:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getTaskNotes', async (event, taskId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const notes = await dbService.getTaskNotes(taskId);
+    return notes;
+  } catch (error: any) {
+    console.error('Error getting task notes:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:updateTaskNote', async (event, noteId, updates) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.updateTaskNote(noteId, updates);
+    return success;
+  } catch (error: any) {
+    console.error('Error updating task note:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:deleteTaskNote', async (event, noteId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.deleteTaskNote(noteId);
+    return success;
+  } catch (error: any) {
+    console.error('Error deleting task note:', error);
+    throw error;
+  }
+});
+
+// ============================================================================
 // IPC HANDLERS - MODULE B: TASK GROUPS
 // ============================================================================
 

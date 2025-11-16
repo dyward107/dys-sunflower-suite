@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useTaskStore } from '../../stores/taskStore';
 import { useCaseStore } from '../../stores/caseStore';
-import type { Task, TimeEntry, TaskPriority } from '../../types/ModuleB';
+import type { Task, TimeEntry, TaskPriority, TaskNote } from '../../types/ModuleB';
 import type { Case } from '../../types/ModuleA';
 import {
   TASK_PRIORITIES,
@@ -39,10 +39,14 @@ export function TaskDetail({ taskId, isOpen, onClose, onEdit }: TaskDetailProps)
   const {
     tasks,
     timeEntries,
+    taskNotes,
     isLoading,
     error,
     loadTaskById,
     loadTimeEntries,
+    loadTaskNotes,
+    createTaskNote,
+    deleteTaskNote,
     completeTask,
     deleteTask,
     startTimer,
@@ -59,7 +63,10 @@ export function TaskDetail({ taskId, isOpen, onClose, onEdit }: TaskDetailProps)
   const [task, setTask] = useState<Task | null>(null);
   const [taskCase, setTaskCase] = useState<Case | null>(null);
   const [taskTimeEntries, setTaskTimeEntries] = useState<TimeEntry[]>([]);
+  const [taskTaskNotes, setTaskTaskNotes] = useState<TaskNote[]>([]);
   const [activeTab, setActiveTab] = useState<'overview' | 'time' | 'notes' | 'activity'>('overview');
+  const [isAddingNote, setIsAddingNote] = useState(false);
+  const [newNoteText, setNewNoteText] = useState('');
 
   // Load task data when opened
   useEffect(() => {
@@ -68,11 +75,13 @@ export function TaskDetail({ taskId, isOpen, onClose, onEdit }: TaskDetailProps)
       if (foundTask) {
         setTask(foundTask);
         loadTimeEntries(taskId);
+        loadTaskNotes(taskId);
       } else {
         loadTaskById(taskId).then((loadedTask: Task | undefined) => {
           if (loadedTask) {
             setTask(loadedTask);
             loadTimeEntries(taskId);
+            loadTaskNotes(taskId);
           }
         });
       }
@@ -95,6 +104,14 @@ export function TaskDetail({ taskId, isOpen, onClose, onEdit }: TaskDetailProps)
       setTaskTimeEntries(entries);
     }
   }, [timeEntries, taskId]);
+
+  // Update notes when they change
+  useEffect(() => {
+    if (taskId) {
+      const notes = taskNotes.filter(note => note.task_id === taskId);
+      setTaskTaskNotes(notes);
+    }
+  }, [taskNotes, taskId]);
 
   // Update local task state when store tasks change (to reflect updated actual_hours)
   useEffect(() => {
@@ -224,6 +241,33 @@ export function TaskDetail({ taskId, isOpen, onClose, onEdit }: TaskDetailProps)
         status: 'over', 
         message: `${variance.toFixed(1)}h over estimate` 
       };
+    }
+  };
+
+  // Note handling functions
+  const handleAddNote = async () => {
+    if (!task || !newNoteText.trim()) return;
+    
+    try {
+      await createTaskNote({
+        task_id: task.id,
+        note_text: newNoteText.trim(),
+        author: 'Current User' // TODO: Get from user context
+      });
+      setNewNoteText('');
+      setIsAddingNote(false);
+    } catch (error) {
+      console.error('Failed to add note:', error);
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (window.confirm('Are you sure you want to delete this note?')) {
+      try {
+        await deleteTaskNote(noteId);
+      } catch (error) {
+        console.error('Failed to delete note:', error);
+      }
     }
   };
 
@@ -684,16 +728,78 @@ export function TaskDetail({ taskId, isOpen, onClose, onEdit }: TaskDetailProps)
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-medium text-gray-900">Notes & Comments</h3>
-                  <button className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">
+                  <button 
+                    onClick={() => setIsAddingNote(true)}
+                    className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+                  >
                     <Plus className="h-4 w-4 mr-1" />
                     Add Note
                   </button>
                 </div>
 
-                <div className="text-center py-8">
-                  <MessageSquare className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No notes yet</h3>
-                  <p className="mt-1 text-sm text-gray-500">Add notes and comments to track progress and important information.</p>
+                {/* Add Note Form */}
+                {isAddingNote && (
+                  <div className="bg-gray-50 rounded-md p-4 mb-4">
+                    <textarea
+                      value={newNoteText}
+                      onChange={(e) => setNewNoteText(e.target.value)}
+                      placeholder="Add your note here..."
+                      className="w-full p-3 border border-gray-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      rows={3}
+                      autoFocus
+                    />
+                    <div className="flex items-center justify-end gap-2 mt-3">
+                      <button
+                        onClick={() => {
+                          setIsAddingNote(false);
+                          setNewNoteText('');
+                        }}
+                        className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleAddNote}
+                        disabled={!newNoteText.trim()}
+                        className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Save Note
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes List */}
+                <div className="space-y-3">
+                  {taskTaskNotes.length > 0 ? (
+                    taskTaskNotes.map((note) => (
+                      <div key={note.id} className="bg-white border border-gray-200 rounded-md p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-900 whitespace-pre-wrap">{note.note_text}</p>
+                            <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+                              <span>{note.author || 'Unknown'}</span>
+                              <span>•</span>
+                              <span>{new Date(note.created_at).toLocaleString()}</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteNote(note.id)}
+                            className="ml-2 p-1 text-gray-400 hover:text-red-600"
+                            title="Delete note"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <MessageSquare className="mx-auto h-12 w-12 text-gray-400" />
+                      <h3 className="mt-2 text-sm font-medium text-gray-900">No notes yet</h3>
+                      <p className="mt-1 text-sm text-gray-500">Add notes and comments to track progress and important information.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -111,7 +111,32 @@ CREATE INDEX IF NOT EXISTS idx_time_entries_entry_date ON time_entries(entry_dat
 CREATE INDEX IF NOT EXISTS idx_time_entries_is_billable ON time_entries(is_billable);
 
 -- ============================================================================
--- TABLE 4: calendar_events
+-- TABLE 4: task_notes
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS task_notes (
+  -- Primary Key
+  id TEXT PRIMARY KEY,
+
+  -- Foreign Key
+  task_id TEXT NOT NULL,
+
+  -- Note Information
+  note_text TEXT NOT NULL,
+  author TEXT,
+
+  -- Audit Trail
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  -- Foreign Key Constraint
+  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_notes_task_id ON task_notes(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_notes_created_at ON task_notes(created_at);
+
+-- ============================================================================
+-- TABLE 5: calendar_events
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS calendar_events (
   -- Primary Key
