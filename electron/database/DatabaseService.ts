@@ -328,6 +328,9 @@ export class DatabaseService {
     // Migration: Create Module B tables if they don't exist
     this.ensureModuleBTablesExist();
 
+    // Migration: Add follow_up column to correspondence_log if it doesn't exist
+    this.ensureCorrespondenceFollowUpColumn();
+
     // Save to disk
     this.save();
   }
@@ -1673,6 +1676,25 @@ export class DatabaseService {
     return stats;
   }
 
+  private ensureCorrespondenceFollowUpColumn(): void {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      // Check if follow_up column exists by trying to query it
+      this.db.exec('SELECT follow_up FROM correspondence_log LIMIT 1');
+      // Column exists, no migration needed
+      console.log('✅ correspondence_log.follow_up column exists');
+    } catch (error: any) {
+      // Column doesn't exist, add it
+      try {
+        this.db.exec('ALTER TABLE correspondence_log ADD COLUMN follow_up INTEGER DEFAULT 0');
+        console.log('✅ Migration: Added follow_up column to correspondence_log table');
+      } catch (migrationError: any) {
+        console.error('❌ Migration error for correspondence follow_up:', migrationError.message);
+      }
+    }
+  }
+
   // ============================================================================
   // MODULE B: MIGRATION METHODS
   // ============================================================================
@@ -2410,8 +2432,8 @@ export class DatabaseService {
 
     this.db.run(`
       INSERT INTO correspondence_log (
-        case_id, person_id, method, direction, date, time, subject, description, notes, attachment_path
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        case_id, person_id, method, direction, date, time, subject, description, notes, attachment_path, follow_up
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       entryData.case_id,
       entryData.person_id || null,
@@ -2422,7 +2444,8 @@ export class DatabaseService {
       entryData.subject || null,
       entryData.description,
       entryData.notes || null,
-      entryData.attachment_path || null
+      entryData.attachment_path || null,
+      entryData.follow_up ? 1 : 0
     ]);
 
     const result = this.db.exec('SELECT last_insert_rowid() as id');

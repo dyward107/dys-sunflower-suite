@@ -184,6 +184,7 @@ export interface CorrespondenceEntry {
   notes: string | null;
   
   attachment_path: string | null;
+  follow_up: boolean;
   
   created_by: string;
   created_at: string;
@@ -201,6 +202,7 @@ export interface CorrespondenceEntryInput {
   description: string;
   notes?: string;
   attachment_path?: string;
+  follow_up?: boolean;
 }
 
 // ============================================================================

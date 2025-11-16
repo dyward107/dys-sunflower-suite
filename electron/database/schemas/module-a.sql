@@ -196,6 +196,9 @@ CREATE TABLE IF NOT EXISTS correspondence_log (
   -- Attachments
   attachment_path TEXT,
   
+  -- Follow-up action needed
+  follow_up INTEGER DEFAULT 0,
+  
   created_by TEXT DEFAULT 'system',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

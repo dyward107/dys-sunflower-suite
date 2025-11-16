@@ -374,6 +374,21 @@ export const Correspondence: React.FC = () => {
                       }}>
                         {entry.direction}
                       </span>
+
+                      {/* Follow-up Badge */}
+                      {entry.follow_up && (
+                        <span style={{
+                          padding: '2px var(--spacing-xs)',
+                          backgroundColor: 'var(--color-sunflower)',
+                          color: 'var(--color-brown-primary)',
+                          borderRadius: 'var(--border-radius-sm)',
+                          fontSize: 'var(--font-size-xs)',
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                        }}>
+                          FOLLOW-UP
+                        </span>
+                      )}
                     </div>
 
                     <div style={{
@@ -513,6 +528,7 @@ const CorrespondenceFormModal: React.FC<CorrespondenceFormModalProps> = ({ entry
     description: entry?.description || '',
     notes: entry?.notes || '',
     attachment_path: entry?.attachment_path || '',
+    follow_up: entry?.follow_up || false,
   });
 
   const [casePersons, setCasePersons] = useState<CasePerson[]>([]);
@@ -915,6 +931,38 @@ const CorrespondenceFormModal: React.FC<CorrespondenceFormModalProps> = ({ entry
                   resize: 'vertical',
                 }}
               />
+            </div>
+
+            {/* Follow-up Required */}
+            <div>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--spacing-sm)',
+                fontSize: 'var(--font-size-sm)',
+                fontWeight: 600,
+                color: 'var(--color-text-primary)',
+                cursor: 'pointer',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={formData.follow_up || false}
+                  onChange={(e) => setFormData(prev => ({ ...prev, follow_up: e.target.checked }))}
+                  style={{
+                    width: '18px',
+                    height: '18px',
+                    accentColor: 'var(--color-sunflower)',
+                  }}
+                />
+                Follow-up action needed
+              </label>
+              <p style={{
+                fontSize: 'var(--font-size-xs)',
+                color: 'var(--color-text-muted)',
+                margin: 'var(--spacing-xs) 0 0 26px',
+              }}>
+                Check if this entry requires follow-up action (future calendar event, task, or email)
+              </p>
             </div>
 
             {/* Form Actions */}
