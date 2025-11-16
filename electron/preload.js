@@ -135,6 +135,12 @@ contextBridge.exposeInMainWorld('electron', {
 
     // Calendar Events
     createCalendarEvent: (eventData) => ipcRenderer.invoke('db:createCalendarEvent', eventData),
-    getCalendarEvents: (taskId, caseId) => ipcRenderer.invoke('db:getCalendarEvents', taskId, caseId)
+    getCalendarEvents: (taskId, caseId) => ipcRenderer.invoke('db:getCalendarEvents', taskId, caseId),
+
+    // Task Notes
+    createTaskNote: (noteData) => ipcRenderer.invoke('db:createTaskNote', noteData),
+    getTaskNotes: (taskId) => ipcRenderer.invoke('db:getTaskNotes', taskId),
+    updateTaskNote: (id, updates) => ipcRenderer.invoke('db:updateTaskNote', id, updates),
+    deleteTaskNote: (id) => ipcRenderer.invoke('db:deleteTaskNote', id)
   }
 });

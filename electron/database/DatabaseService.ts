@@ -1683,27 +1683,59 @@ export class DatabaseService {
     console.log('🌻 Checking Module B tables...');
 
     // Check if tasks table exists
+    let tasksTableExists = false;
     try {
       this.db.exec('SELECT 1 FROM tasks LIMIT 1');
-      console.log('✅ Module B tables already exist');
-      return;
+      tasksTableExists = true;
+      console.log('✅ Module B core tables exist');
     } catch (error) {
       // Tables don't exist, create them
       console.log('📋 Creating Module B tables...');
     }
 
-    try {
-      // Load Module B schema from file
-      console.log('📁 Loading Module B schema from file...');
-      const schemas = SchemaLoader.loadSchemas();
-      
-      console.log('🔧 Executing Module B schema...');
-      this.db.exec(schemas.moduleB);
-      console.log('✅ Module B tables created successfully');
+    // If tasks table doesn't exist, create all Module B tables
+    if (!tasksTableExists) {
+      try {
+        // Load Module B schema from file
+        console.log('📁 Loading Module B schema from file...');
+        const schemas = SchemaLoader.loadSchemas();
+        
+        console.log('🔧 Executing Module B schema...');
+        this.db.exec(schemas.moduleB);
+        console.log('✅ Module B tables created successfully');
 
-    } catch (error: any) {
-      console.error('❌ Error creating Module B tables:', error.message);
-      throw error;
+      } catch (error: any) {
+        console.error('❌ Error creating Module B tables:', error.message);
+        throw error;
+      }
+    } else {
+      // Tasks table exists, but check for task_notes table specifically (added in v5.0)
+      try {
+        this.db.exec('SELECT 1 FROM task_notes LIMIT 1');
+        console.log('✅ task_notes table exists');
+      } catch (error) {
+        // task_notes table doesn't exist, create it
+        console.log('📋 Migration: Creating task_notes table...');
+        try {
+          this.db.exec(`
+            CREATE TABLE IF NOT EXISTS task_notes (
+              id TEXT PRIMARY KEY,
+              task_id TEXT NOT NULL,
+              note_text TEXT NOT NULL,
+              author TEXT,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_task_notes_task_id ON task_notes(task_id);
+            CREATE INDEX IF NOT EXISTS idx_task_notes_created_at ON task_notes(created_at);
+          `);
+          console.log('✅ Migration: task_notes table created successfully');
+        } catch (migrationError: any) {
+          console.error('❌ Migration error for task_notes:', migrationError.message);
+        }
+      }
     }
   }
 
@@ -1992,6 +2024,68 @@ export class DatabaseService {
       }
     }
 
+    this.save();
+    return true;
+  }
+
+  // Task Note Methods
+  async createTaskNote(noteData: any): Promise<string> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const id = `note-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    
+    this.db.run(`
+      INSERT INTO task_notes (id, task_id, note_text, author, created_at, updated_at)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `, [id, noteData.task_id, noteData.note_text, noteData.author || null]);
+
+    this.save();
+    return id;
+  }
+
+  async getTaskNotes(taskId: string): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec(`
+      SELECT id, task_id, note_text, author, created_at, updated_at
+      FROM task_notes
+      WHERE task_id = ?
+      ORDER BY created_at DESC
+    `, [taskId]);
+
+    if (!result || result.length === 0) return [];
+
+    const columns = result[0].columns;
+    return result[0].values.map(row => {
+      const obj: any = {};
+      columns.forEach((col, index) => {
+        obj[col] = row[index];
+      });
+      return obj;
+    });
+  }
+
+  async updateTaskNote(noteId: string, updates: any): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.note_text !== undefined) { fields.push('note_text = ?'); values.push(updates.note_text); }
+    if (updates.author !== undefined) { fields.push('author = ?'); values.push(updates.author); }
+
+    fields.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(noteId);
+
+    this.db.run(`UPDATE task_notes SET ${fields.join(', ')} WHERE id = ?`, values);
+    this.save();
+    return true;
+  }
+
+  async deleteTaskNote(noteId: string): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    this.db.run('DELETE FROM task_notes WHERE id = ?', [noteId]);
     this.save();
     return true;
   }
