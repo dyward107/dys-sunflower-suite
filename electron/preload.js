@@ -101,6 +101,17 @@ contextBridge.exposeInMainWorld('electron', {
     deleteCorrespondence: (entryId) => ipcRenderer.invoke('db:deleteCorrespondence', entryId),
 
     // ============================================================================
+    // MODULE C (PHASE 3): CALENDAR EVENTS
+    // ============================================================================
+    createCalendarEvent: (eventData) => ipcRenderer.invoke('db:createCalendarEvent', eventData),
+    getCalendarEvents: (filters) => ipcRenderer.invoke('db:getCalendarEvents', filters),
+    getCalendarEventById: (eventId) => ipcRenderer.invoke('db:getCalendarEventById', eventId),
+    updateCalendarEvent: (eventId, updates) => ipcRenderer.invoke('db:updateCalendarEvent', eventId, updates),
+    deleteCalendarEvent: (eventId) => ipcRenderer.invoke('db:deleteCalendarEvent', eventId),
+    exportCalendarEventsToICS: (filters) => ipcRenderer.invoke('db:exportCalendarEventsToICS', filters),
+    syncCalendarEventToOutlook: (eventId) => ipcRenderer.invoke('db:syncCalendarEventToOutlook', eventId),
+
+    // ============================================================================
     // MODULE A (UNIFIED): GLOBAL CONTACTS
     // ============================================================================
     

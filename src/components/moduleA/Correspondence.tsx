@@ -7,6 +7,8 @@ import { Plus, Mail, Phone, MessageSquare, User, Search, ExternalLink, Edit, Tra
 import type { CorrespondenceEntry, CorrespondenceEntryInput, CorrespondenceMethod, CorrespondenceDirection } from '../../types/ModuleA-Unified';
 import type { Case } from '../../types/ModuleA';
 import type { CasePerson } from '../../types/ModuleA-Unified';
+import { EventCreationForm } from '../shared/EventCreationForm';
+import { CalendarEventInput } from '../../types/ModuleC';
 import '../../styles/design-system.css';
 
 type FilterState = {
@@ -24,6 +26,8 @@ export const Correspondence: React.FC = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<CorrespondenceEntry | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [eventCreationEntry, setEventCreationEntry] = useState<CorrespondenceEntry | null>(null);
   
   const [filters, setFilters] = useState<FilterState>({
     caseId: null,
@@ -103,6 +107,16 @@ export const Correspondence: React.FC = () => {
     }
     setShowAddForm(false);
     setEditingEntry(null);
+    
+    // Ask if user wants to create calendar event (moved from modal - cleaner UX)
+    const shouldCreateEvent = window.confirm(
+      `Correspondence saved successfully!\n\nWould you like to create a calendar event or deadline related to this correspondence?`
+    );
+    
+    if (shouldCreateEvent) {
+      setEventCreationEntry(savedEntry);
+      setShowEventForm(true);
+    }
   };
 
   const getCaseName = (caseId: number) => {
@@ -501,6 +515,36 @@ export const Correspondence: React.FC = () => {
           onCancel={() => {
             setShowAddForm(false);
             setEditingEntry(null);
+          }}
+        />
+      )}
+
+      {/* Event Creation Form */}
+      {showEventForm && eventCreationEntry && (
+        <EventCreationForm
+          isOpen={showEventForm}
+          onClose={() => {
+            setShowEventForm(false);
+            setEventCreationEntry(null);
+          }}
+          onSubmit={async (eventData: CalendarEventInput) => {
+            try {
+              await window.electron.db.createCalendarEvent(eventData);
+              console.log('Event created successfully from correspondence');
+            } catch (error) {
+              console.error('Failed to create event:', error);
+              throw error;
+            }
+          }}
+          context={{
+            source: 'correspondence',
+            case_id: eventCreationEntry.case_id,
+            prefilled_data: {
+              title: `Correspondence: ${eventCreationEntry.subject || 'Follow-up'}`,
+              description: `Follow-up related to correspondence: ${eventCreationEntry.description}`,
+              event_date: new Date().toISOString().split('T')[0],
+              trigger_automation: false
+            }
           }}
         />
       )}

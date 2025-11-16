@@ -2,7 +2,7 @@
 import initSqlJs, { Database } from 'sql.js';
 import * as path from 'path';
 import * as fs from 'fs';
-import { SchemaLoader } from './schema-loader';
+const { SchemaLoader } = require('./schema-loader');
 
 // SCHEMA_SQL constant removed - now using SchemaLoader for modular schema management
 
@@ -330,6 +330,7 @@ export class DatabaseService {
 
     // Migration: Add follow_up column to correspondence_log if it doesn't exist
     this.ensureCorrespondenceFollowUpColumn();
+    this.ensureCalendarEventColumns();
 
     // Save to disk
     this.save();
@@ -2160,73 +2161,6 @@ export class DatabaseService {
     return id;
   }
 
-  // Calendar Event Methods
-  async createCalendarEvent(eventData: any): Promise<string> {
-    if (!this.db) throw new Error('Database not initialized');
-
-    const id = `event-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    
-    this.db.run(`
-      INSERT INTO calendar_events (
-        id, task_id, case_id, title, description, event_date, all_day,
-        start_time, end_time, location, reminders, calendar_type, event_type
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      id,
-      eventData.task_id || null,
-      eventData.case_id,
-      eventData.title,
-      eventData.description || null,
-      eventData.event_date,
-      eventData.all_day !== undefined ? eventData.all_day : 1,
-      eventData.start_time || null,
-      eventData.end_time || null,
-      eventData.location || null,
-      eventData.reminders ? JSON.stringify(eventData.reminders) : null,
-      eventData.calendar_type,
-      eventData.event_type || 'manual'
-    ]);
-
-    this.save();
-    return id;
-  }
-
-  async getCalendarEvents(taskId?: string, caseId?: number): Promise<any[]> {
-    if (!this.db) throw new Error('Database not initialized');
-
-    let query = 'SELECT * FROM calendar_events WHERE 1=1';
-    const params: any[] = [];
-
-    if (taskId) {
-      query += ' AND task_id = ?';
-      params.push(taskId);
-    }
-
-    if (caseId) {
-      query += ' AND case_id = ?';
-      params.push(caseId);
-    }
-
-    query += ' ORDER BY event_date ASC';
-
-    const result = this.db.exec(query, params);
-    if (result.length === 0) return [];
-
-    const columns = result[0].columns;
-    const values = result[0].values;
-    return values.map((row: any[]) => {
-      const obj: any = {};
-      columns.forEach((col: string, i: number) => {
-        if (col === 'reminders' && row[i]) {
-          obj[col] = JSON.parse(row[i] as string);
-        } else {
-          obj[col] = row[i];
-        }
-      });
-      return obj;
-    });
-  }
-
   // ============================================================================
   // CASE PERSONS (Unified Parties + Contacts)
   // ============================================================================
@@ -2542,6 +2476,295 @@ export class DatabaseService {
 
     this.db.run('DELETE FROM correspondence_log WHERE id = ?', [entryId]);
     this.save();
+  }
+
+  // ============================================================================
+  // CALENDAR EVENTS (Module C - Phase 3)
+  // ============================================================================
+
+  async createCalendarEvent(eventData: any): Promise<string> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const id = `event-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    
+    this.db.run(`
+      INSERT INTO calendar_events (
+        id, case_id, task_id, correspondence_id, deadline_id,
+        event_type, title, description, event_date, event_time, all_day, location,
+        start_time, end_time, calendar_type, ics_file_path, reminders,
+        trigger_automation, automation_triggered, automation_id, automation_log_id,
+        reminder_days, is_jurisdictional, outlook_event_id, created_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      id,
+      eventData.case_id,
+      eventData.task_id || null,
+      eventData.correspondence_id || null,
+      eventData.deadline_id || null,
+      eventData.event_type,
+      eventData.title,
+      eventData.description || null,
+      eventData.event_date,
+      eventData.event_time || null,
+      eventData.all_day !== false ? 1 : 0, // Default to all-day
+      eventData.location || null,
+      // Module B compatibility fields
+      eventData.start_time || null,
+      eventData.end_time || null,
+      eventData.calendar_type || null,
+      eventData.ics_file_path || null,
+      eventData.reminders ? JSON.stringify(eventData.reminders) : null,
+      // Module C automation fields
+      eventData.trigger_automation ? 1 : 0,
+      0, // automation_triggered starts as false
+      eventData.automation_id || null,
+      eventData.automation_log_id || null,
+      eventData.reminder_days ? JSON.stringify(eventData.reminder_days) : null,
+      eventData.is_jurisdictional ? 1 : 0,
+      eventData.outlook_event_id || null,
+      eventData.created_by || null
+    ]);
+
+    this.save();
+    return id;
+  }
+
+  async getCalendarEvents(filters?: any): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    let query = `
+      SELECT 
+        ce.*,
+        c.case_name,
+        c.cm_number
+      FROM calendar_events ce
+      LEFT JOIN cases c ON ce.case_id = c.id
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+
+    // Filter by case
+    if (filters?.case_id) {
+      query += ' AND ce.case_id = ?';
+      params.push(filters.case_id);
+    }
+
+    // Filter by date range
+    if (filters?.start_date) {
+      query += ' AND ce.event_date >= ?';
+      params.push(filters.start_date);
+    }
+
+    if (filters?.end_date) {
+      query += ' AND ce.event_date <= ?';
+      params.push(filters.end_date);
+    }
+
+    // Filter by event type
+    if (filters?.event_type) {
+      query += ' AND ce.event_type = ?';
+      params.push(filters.event_type);
+    }
+
+    // Filter jurisdictional events only
+    if (filters?.jurisdictional_only) {
+      query += ' AND ce.is_jurisdictional = 1';
+    }
+
+    // Filter events needing automation trigger
+    if (filters?.automation_pending) {
+      query += ' AND ce.trigger_automation = 1 AND ce.automation_triggered = 0';
+    }
+
+    query += ' ORDER BY ce.event_date ASC, ce.event_time ASC';
+
+    const result = this.db.exec(query, params);
+    
+    if (result.length === 0 || !result[0].values) return [];
+
+    const columns = result[0].columns;
+    return result[0].values.map(row => {
+      const event: any = {};
+      columns.forEach((col, index) => {
+        const value = row[index];
+        if (col === 'reminder_days' && value) {
+          try {
+            event[col] = JSON.parse(value as string);
+          } catch {
+            event[col] = [];
+          }
+        } else {
+          event[col] = value;
+        }
+      });
+      return event;
+    });
+  }
+
+  async getCalendarEventById(eventId: string): Promise<any | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = this.db.exec(`
+      SELECT 
+        ce.*,
+        c.case_name,
+        c.cm_number
+      FROM calendar_events ce
+      LEFT JOIN cases c ON ce.case_id = c.id
+      WHERE ce.id = ?
+    `, [eventId]);
+
+    if (result.length === 0 || result[0].values.length === 0) return null;
+
+    const columns = result[0].columns;
+    const row = result[0].values[0];
+    const event: any = {};
+    
+    columns.forEach((col, index) => {
+      const value = row[index];
+      if (col === 'reminder_days' && value) {
+        try {
+          event[col] = JSON.parse(value as string);
+        } catch {
+          event[col] = [];
+        }
+      } else {
+        event[col] = value;
+      }
+    });
+
+    return event;
+  }
+
+  async updateCalendarEvent(eventId: string, updates: any): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const setClauses: string[] = [];
+    const values: any[] = [];
+
+    // Handle all possible update fields
+    const updateableFields = [
+      'event_type', 'title', 'description', 'event_date', 'event_time', 'all_day', 'location',
+      'start_time', 'end_time', 'calendar_type', 'ics_file_path', 'reminders', // Module B compatibility
+      'trigger_automation', 'automation_triggered', 'automation_id', 'automation_log_id',
+      'reminder_days', 'is_jurisdictional', 'outlook_event_id'
+    ];
+
+    updateableFields.forEach(field => {
+      if (updates[field] !== undefined) {
+        setClauses.push(`${field} = ?`);
+        if (['reminder_days', 'reminders'].includes(field) && updates[field]) {
+          values.push(JSON.stringify(updates[field]));
+        } else if (['all_day', 'trigger_automation', 'automation_triggered', 'is_jurisdictional'].includes(field)) {
+          values.push(updates[field] ? 1 : 0);
+        } else {
+          values.push(updates[field]);
+        }
+      }
+    });
+
+    if (setClauses.length === 0) return; // No updates to make
+
+    setClauses.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(eventId);
+
+    const query = `UPDATE calendar_events SET ${setClauses.join(', ')} WHERE id = ?`;
+    this.db.run(query, values);
+    this.save();
+  }
+
+  async deleteCalendarEvent(eventId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    this.db.run('DELETE FROM calendar_events WHERE id = ?', [eventId]);
+    this.save();
+  }
+
+  async exportCalendarEventsToICS(filters?: any): Promise<string> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const events = await this.getCalendarEvents(filters);
+    
+    // Basic ICS format generation
+    let icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Dy\'s Sunflower Suite//Calendar Export//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH'
+    ];
+
+    events.forEach(event => {
+      const startDate = event.all_day 
+        ? event.event_date.replace(/-/g, '')
+        : `${event.event_date.replace(/-/g, '')}T${(event.event_time || '09:00:00').replace(/:/g, '')}00`;
+
+      icsContent.push('BEGIN:VEVENT');
+      icsContent.push(`UID:${event.id}@sunflowersuite.local`);
+      icsContent.push(`DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`);
+      
+      if (event.all_day) {
+        icsContent.push(`DTSTART;VALUE=DATE:${startDate}`);
+      } else {
+        icsContent.push(`DTSTART:${startDate}`);
+      }
+      
+      icsContent.push(`SUMMARY:${event.title || 'Untitled Event'}`);
+      
+      if (event.description) {
+        icsContent.push(`DESCRIPTION:${event.description.replace(/\n/g, '\\n')}`);
+      }
+      
+      if (event.location) {
+        icsContent.push(`LOCATION:${event.location}`);
+      }
+      
+      if (event.case_name) {
+        icsContent.push(`CATEGORIES:${event.case_name} (${event.cm_number || ''})`);
+      }
+      
+      icsContent.push('END:VEVENT');
+    });
+
+    icsContent.push('END:VCALENDAR');
+    
+    return icsContent.join('\r\n');
+  }
+
+  async syncCalendarEventToOutlook(eventId: string): Promise<boolean> {
+    // TODO: Implement Outlook integration in future phase
+    // For now, return success stub
+    console.log(`📅 Outlook sync requested for event ${eventId} - feature coming soon`);
+    return true;
+  }
+
+  // Migration helper for adding calendar_event_id columns to existing tables
+  private async ensureCalendarEventColumns(): Promise<void> {
+    if (!this.db) return;
+
+    try {
+      // Check if tasks table has calendar_event_id column
+      const tasksInfo = this.db.exec("PRAGMA table_info(tasks)");
+      const hasTasksColumn = tasksInfo[0]?.values.some(row => row[1] === 'calendar_event_id');
+      
+      if (!hasTasksColumn) {
+        console.log('📅 Adding calendar_event_id column to tasks table');
+        this.db.exec('ALTER TABLE tasks ADD COLUMN calendar_event_id TEXT REFERENCES calendar_events(id)');
+      }
+
+      // Check if correspondence_log table has calendar_event_id column
+      const corrInfo = this.db.exec("PRAGMA table_info(correspondence_log)");
+      const hasCorrColumn = corrInfo[0]?.values.some(row => row[1] === 'calendar_event_id');
+      
+      if (!hasCorrColumn) {
+        console.log('📅 Adding calendar_event_id column to correspondence_log table');
+        this.db.exec('ALTER TABLE correspondence_log ADD COLUMN calendar_event_id TEXT REFERENCES calendar_events(id)');
+      }
+
+      this.save();
+    } catch (error) {
+      console.error('❌ Error adding calendar_event_id columns:', error);
+    }
   }
 
   // ============================================================================

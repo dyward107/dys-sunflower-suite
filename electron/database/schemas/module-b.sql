@@ -113,51 +113,10 @@ CREATE INDEX IF NOT EXISTS idx_time_entries_entry_date ON time_entries(entry_dat
 CREATE INDEX IF NOT EXISTS idx_time_entries_is_billable ON time_entries(is_billable);
 
 -- ============================================================================
--- TABLE 4: calendar_events
+-- TABLE 4: calendar_events - REMOVED (Now owned by Module C)
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS calendar_events (
-  -- Primary Key
-  id TEXT PRIMARY KEY,
-
-  -- Foreign Keys
-  task_id TEXT,
-  case_id INTEGER NOT NULL,
-
-  -- Event Information
-  title TEXT NOT NULL,
-  description TEXT,
-  event_date DATE NOT NULL,
-  all_day INTEGER DEFAULT 1,
-  start_time TIME,
-  end_time TIME,
-  location TEXT,
-
-  -- Reminders (stored as JSON array: [30, 14, 7, 3, 1])
-  reminders TEXT,
-
-  -- Calendar Type
-  calendar_type TEXT CHECK(calendar_type IN ('outlook', 'ics', 'both')),
-
-  -- External IDs
-  outlook_event_id TEXT,
-  ics_file_path TEXT,
-
-  -- Event Type
-  event_type TEXT DEFAULT 'manual' CHECK(event_type IN ('auto', 'manual')),
-
-  -- Audit Trail
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-  -- Foreign Key Constraints
-  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-  FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_calendar_events_task_id ON calendar_events(task_id);
-CREATE INDEX IF NOT EXISTS idx_calendar_events_case_id ON calendar_events(case_id);
-CREATE INDEX IF NOT EXISTS idx_calendar_events_event_date ON calendar_events(event_date);
-CREATE INDEX IF NOT EXISTS idx_calendar_events_calendar_type ON calendar_events(calendar_type);
+-- NOTE: calendar_events table moved to Module C for centralized calendar management
+-- Module B can still reference calendar events via foreign keys and IPC methods
 
 -- ============================================================================
 -- TABLE 5: automation_settings (Future: Enable/Disable Automations)

@@ -26,7 +26,10 @@ import {
   MessageSquare,
   Activity,
   DollarSign,
+  Calendar,
 } from 'lucide-react';
+import { EventCreationForm } from '../shared/EventCreationForm';
+import { CalendarEventInput } from '../../types/ModuleC';
 
 interface TaskDetailProps {
   taskId: string;
@@ -67,6 +70,8 @@ export function TaskDetail({ taskId, isOpen, onClose, onEdit }: TaskDetailProps)
   const [activeTab, setActiveTab] = useState<'overview' | 'time' | 'notes' | 'activity'>('overview');
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [newNoteText, setNewNoteText] = useState('');
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [showCompletionConfirm, setShowCompletionConfirm] = useState(false);
 
   // Load task data when opened
   useEffect(() => {
@@ -148,13 +153,23 @@ export function TaskDetail({ taskId, isOpen, onClose, onEdit }: TaskDetailProps)
   const handleCompleteTask = async () => {
     if (!task) return;
     
-    if (window.confirm('Mark this task as completed?')) {
-      try {
-        await completeTask(task.id);
-        setTask(prev => prev ? { ...prev, status: 'completed' } : null);
-      } catch (error) {
-        console.error('Failed to complete task:', error);
+    // Show completion confirmation dialog
+    setShowCompletionConfirm(true);
+  };
+
+  const confirmTaskCompletion = async (createEvent: boolean) => {
+    if (!task) return;
+    
+    try {
+      await completeTask(task.id);
+      setTask(prev => prev ? { ...prev, status: 'completed' } : null);
+      setShowCompletionConfirm(false);
+      
+      if (createEvent) {
+        setShowEventForm(true);
       }
+    } catch (error) {
+      console.error('Failed to complete task:', error);
     }
   };
 
@@ -819,6 +834,176 @@ export function TaskDetail({ taskId, isOpen, onClose, onEdit }: TaskDetailProps)
           </div>
         </div>
       </div>
+
+      {/* Task Completion Confirmation Modal */}
+      {showCompletionConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1001
+        }}>
+          <div style={{
+            backgroundColor: 'var(--color-background-primary)',
+            borderRadius: 'var(--border-radius-lg)',
+            border: '2px solid var(--color-sunflower)',
+            padding: 'var(--spacing-lg)',
+            maxWidth: '500px',
+            width: '90%'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--spacing-sm)',
+              marginBottom: 'var(--spacing-lg)'
+            }}>
+              <CheckCircle size={24} color="var(--color-sage)" />
+              <h3 style={{
+                fontSize: 'var(--font-size-lg)',
+                fontWeight: 600,
+                color: 'var(--color-text-primary)',
+                margin: 0,
+                fontFamily: 'var(--font-family-primary)'
+              }}>
+                Complete Task
+              </h3>
+            </div>
+            
+            <p style={{
+              fontSize: 'var(--font-size-sm)',
+              color: 'var(--color-text-secondary)',
+              marginBottom: 'var(--spacing-lg)',
+              fontFamily: 'var(--font-family-primary)',
+              lineHeight: 1.5
+            }}>
+              Mark "{task?.title}" as completed?
+            </p>
+
+            <div style={{
+              backgroundColor: 'var(--color-sunflower-lighter)',
+              padding: 'var(--spacing-md)',
+              borderRadius: 'var(--border-radius-md)',
+              marginBottom: 'var(--spacing-lg)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 'var(--spacing-sm)'
+            }}>
+              <Calendar size={16} color="var(--color-sunflower)" style={{ marginTop: '2px' }} />
+              <div>
+                <p style={{
+                  fontSize: 'var(--font-size-sm)',
+                  fontWeight: 600,
+                  color: 'var(--color-text-primary)',
+                  margin: '0 0 4px 0',
+                  fontFamily: 'var(--font-family-primary)'
+                }}>
+                  Create Calendar Event?
+                </p>
+                <p style={{
+                  fontSize: 'var(--font-size-xs)',
+                  color: 'var(--color-text-secondary)',
+                  margin: 0,
+                  fontFamily: 'var(--font-family-primary)',
+                  lineHeight: 1.4
+                }}>
+                  Completing this task might trigger next steps. Would you like to create a calendar event or deadline?
+                </p>
+              </div>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 'var(--spacing-md)'
+            }}>
+              <button
+                onClick={() => setShowCompletionConfirm(false)}
+                style={{
+                  padding: 'var(--spacing-sm) var(--spacing-md)',
+                  backgroundColor: 'var(--color-background-secondary)',
+                  border: '1px solid var(--color-border-primary)',
+                  borderRadius: 'var(--border-radius-md)',
+                  fontSize: 'var(--font-size-sm)',
+                  color: 'var(--color-text-primary)',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-family-primary)'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => confirmTaskCompletion(false)}
+                style={{
+                  padding: 'var(--spacing-sm) var(--spacing-md)',
+                  backgroundColor: 'var(--color-sage)',
+                  border: 'none',
+                  borderRadius: 'var(--border-radius-md)',
+                  fontSize: 'var(--font-size-sm)',
+                  fontWeight: 600,
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-family-primary)'
+                }}
+              >
+                Just Complete
+              </button>
+              <button
+                onClick={() => confirmTaskCompletion(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--spacing-xs)',
+                  padding: 'var(--spacing-sm) var(--spacing-md)',
+                  backgroundColor: 'var(--color-sunflower)',
+                  border: 'none',
+                  borderRadius: 'var(--border-radius-md)',
+                  fontSize: 'var(--font-size-sm)',
+                  fontWeight: 600,
+                  color: 'var(--color-background-primary)',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-family-primary)'
+                }}
+              >
+                <Calendar size={16} />
+                Complete & Create Event
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Creation Form */}
+      {showEventForm && task && taskCase && (
+        <EventCreationForm
+          isOpen={showEventForm}
+          onClose={() => setShowEventForm(false)}
+          onSubmit={async (eventData: CalendarEventInput) => {
+            try {
+              await window.electron.db.createCalendarEvent(eventData);
+              console.log('Event created successfully');
+            } catch (error) {
+              console.error('Failed to create event:', error);
+              throw error;
+            }
+          }}
+          context={{
+            source: 'task_completion',
+            case_id: Number(task.case_id),
+            prefilled_data: {
+              title: `Task Completed: ${task.title}`,
+              description: `Completed task: ${task.description || task.title}`,
+              event_date: new Date().toISOString().split('T')[0],
+              trigger_automation: false
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

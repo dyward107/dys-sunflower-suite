@@ -715,6 +715,87 @@ ipcMain.handle('db:deleteCorrespondence', async (event, entryId) => {
 });
 
 // ============================================================================
+// IPC HANDLERS - MODULE C (PHASE 3): CALENDAR EVENTS
+// ============================================================================
+
+ipcMain.handle('db:createCalendarEvent', async (event, eventData) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const id = await dbService.createCalendarEvent(eventData);
+    return id;
+  } catch (error: any) {
+    console.error('Error creating calendar event:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getCalendarEvents', async (event, filters) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const events = await dbService.getCalendarEvents(filters);
+    return events;
+  } catch (error: any) {
+    console.error('Error getting calendar events:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:getCalendarEventById', async (event, eventId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const event = await dbService.getCalendarEventById(eventId);
+    return event;
+  } catch (error: any) {
+    console.error('Error getting calendar event by ID:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:updateCalendarEvent', async (event, eventId, updates) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    await dbService.updateCalendarEvent(eventId, updates);
+    return true;
+  } catch (error: any) {
+    console.error('Error updating calendar event:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:deleteCalendarEvent', async (event, eventId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    await dbService.deleteCalendarEvent(eventId);
+    return true;
+  } catch (error: any) {
+    console.error('Error deleting calendar event:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:exportCalendarEventsToICS', async (event, filters) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const icsContent = await dbService.exportCalendarEventsToICS(filters);
+    return icsContent;
+  } catch (error: any) {
+    console.error('Error exporting calendar events to ICS:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('db:syncCalendarEventToOutlook', async (event, eventId) => {
+  if (!dbService) throw new Error('Database not initialized');
+  try {
+    const success = await dbService.syncCalendarEventToOutlook(eventId);
+    return success;
+  } catch (error: any) {
+    console.error('Error syncing calendar event to Outlook:', error);
+    throw error;
+  }
+});
+
+// ============================================================================
 // IPC HANDLERS - MODULE A (UNIFIED): GLOBAL CONTACTS
 // ============================================================================
 
@@ -977,27 +1058,6 @@ ipcMain.handle('db:createTaskGroup', async (event, groupData) => {
 });
 
 // ============================================================================
-// IPC HANDLERS - MODULE B: CALENDAR EVENTS
+// IPC HANDLERS - MODULE B: TASKS, TIME TRACKING, NOTES  
 // ============================================================================
-
-ipcMain.handle('db:createCalendarEvent', async (event, eventData) => {
-  if (!dbService) throw new Error('Database not initialized');
-  try {
-    const id = await dbService.createCalendarEvent(eventData);
-    return id;
-  } catch (error: any) {
-    console.error('Error creating calendar event:', error);
-    throw error;
-  }
-});
-
-ipcMain.handle('db:getCalendarEvents', async (event, taskId, caseId) => {
-  if (!dbService) throw new Error('Database not initialized');
-  try {
-    const events = await dbService.getCalendarEvents(taskId, caseId);
-    return events;
-  } catch (error: any) {
-    console.error('Error getting calendar events:', error);
-    throw error;
-  }
-});
+// (Calendar events moved to Module C section above)

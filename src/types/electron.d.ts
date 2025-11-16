@@ -14,9 +14,13 @@ import {
 
 import {
   Task, TaskInput, TaskFilters, TimeEntry, TimeEntryInput,
-  TaskNote, TaskNoteInput, TaskGroup, TaskGroupInput, 
-  CalendarEvent, CalendarEventInput
+  TaskNote, TaskNoteInput, TaskGroup, TaskGroupInput
 } from './ModuleB';
+
+import {
+  CalendarEvent, CalendarEventInput, CalendarEventFilters,
+  ICSExportOptions, OutlookSyncStatus
+} from './ModuleC';
 
 export interface ElectronAPI {
   db: {
@@ -111,6 +115,17 @@ export interface ElectronAPI {
     getCorrespondenceById: (entryId: number) => Promise<CorrespondenceEntry | null>;
     updateCorrespondence: (entryId: number, updates: Partial<CorrespondenceEntryInput>) => Promise<boolean>;
     deleteCorrespondence: (entryId: number) => Promise<boolean>;
+
+    // ============================================================================
+    // MODULE C (PHASE 3): CALENDAR EVENTS
+    // ============================================================================
+    createCalendarEvent: (eventData: CalendarEventInput) => Promise<string>;
+    getCalendarEvents: (filters?: CalendarEventFilters) => Promise<CalendarEvent[]>;
+    getCalendarEventById: (eventId: string) => Promise<CalendarEvent | null>;
+    updateCalendarEvent: (eventId: string, updates: Partial<CalendarEventInput>) => Promise<boolean>;
+    deleteCalendarEvent: (eventId: string) => Promise<boolean>;
+    exportCalendarEventsToICS: (options?: ICSExportOptions) => Promise<string>;
+    syncCalendarEventToOutlook: (eventId: string) => Promise<boolean>;
 
     // ============================================================================
     // MODULE A (UNIFIED): GLOBAL CONTACTS

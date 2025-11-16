@@ -4,7 +4,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTaskStore } from '../../stores/taskStore';
-import type { CalendarEvent, CalendarEventInput } from '../../types/ModuleB';
+import type { 
+  UnifiedCalendarEvent, 
+  UnifiedCalendarEventInput
+} from '../../types/CalendarUnified';
+import { 
+  mapUnifiedToModuleB
+} from '../../types/CalendarUnified';
 import { 
   X, 
   Calendar, 
@@ -22,14 +28,14 @@ interface CalendarEventModalProps {
   isOpen: boolean;
   onClose: () => void;
   taskId?: string; // Pre-selected task to link
-  calendarEvent?: CalendarEvent | null; // If editing existing event
+  calendarEvent?: UnifiedCalendarEvent | null; // If editing existing event
 }
 
 export function CalendarEventModal({ isOpen, onClose, taskId, calendarEvent }: CalendarEventModalProps) {
-  const { tasks, createCalendarEvent, isLoading, error, loadTasks } = useTaskStore();
+  const { tasks, isLoading, error, loadTasks } = useTaskStore();
 
-  // Form state
-  const [formData, setFormData] = useState<CalendarEventInput>({
+  // Form state - using unified types with Module B compatibility
+  const [formData, setFormData] = useState<UnifiedCalendarEventInput>({
     title: '',
     description: '',
     event_date: new Date().toISOString().split('T')[0],
@@ -37,11 +43,11 @@ export function CalendarEventModal({ isOpen, onClose, taskId, calendarEvent }: C
     end_time: '10:00',
     location: '',
     task_id: taskId || undefined,
-    case_id: 0, // Will be set from task or selected
+    case_id: 1, // Default case ID - should be set from task or user selection
     all_day: false,
-    reminders: [15], // Array of minutes
+    reminders: [15], // Array of minutes (Module B format)
     calendar_type: 'ics',
-    event_type: 'manual',
+    event_type: 'manual', // Module B format - will be converted
   });
   
   // Additional form state for UI
@@ -61,24 +67,23 @@ export function CalendarEventModal({ isOpen, onClose, taskId, calendarEvent }: C
   // Populate form when editing existing event or resetting
   useEffect(() => {
     if (calendarEvent) {
-      // Editing existing event - populate from calendar event data
-      // Construct datetime from event_date and start_time/end_time
-      const startDateTime = new Date(`${calendarEvent.event_date}T${calendarEvent.start_time || '00:00'}`);
-      const endDateTime = new Date(`${calendarEvent.event_date}T${calendarEvent.end_time || '23:59'}`);
+      // Editing existing event - populate from unified calendar event data
+      // Convert to Module B format for this form
+      const moduleBEvent = mapUnifiedToModuleB(calendarEvent);
       
       setFormData({
-        title: calendarEvent.title,
-        description: calendarEvent.description || '',
-        event_date: calendarEvent.event_date,
-        start_time: `${startDateTime.getHours().toString().padStart(2, '0')}:${startDateTime.getMinutes().toString().padStart(2, '0')}`,
-        end_time: `${endDateTime.getHours().toString().padStart(2, '0')}:${endDateTime.getMinutes().toString().padStart(2, '0')}`,
-        location: calendarEvent.location || '',
-        task_id: calendarEvent.task_id || undefined,
-        case_id: calendarEvent.case_id,
-        all_day: calendarEvent.all_day,
-        reminders: calendarEvent.reminders || [15],
-        calendar_type: calendarEvent.calendar_type,
-        event_type: calendarEvent.event_type,
+        title: moduleBEvent.title,
+        description: moduleBEvent.description || '',
+        event_date: moduleBEvent.event_date,
+        start_time: moduleBEvent.start_time || '09:00',
+        end_time: moduleBEvent.end_time || '10:00',
+        location: moduleBEvent.location || '',
+        task_id: moduleBEvent.task_id || undefined,
+        case_id: moduleBEvent.case_id,
+        all_day: moduleBEvent.all_day,
+        reminders: moduleBEvent.reminders || [15],
+        calendar_type: moduleBEvent.calendar_type || 'ics',
+        event_type: moduleBEvent.event_type || 'manual',
       });
       setAttendees(''); // attendees not stored in calendar event
     } else {
@@ -94,7 +99,7 @@ export function CalendarEventModal({ isOpen, onClose, taskId, calendarEvent }: C
         end_time: `${oneHourLater.getHours().toString().padStart(2, '0')}:${oneHourLater.getMinutes().toString().padStart(2, '0')}`,
         location: '',
         task_id: taskId || undefined,
-        case_id: 0, // Will be set when task is selected
+        case_id: 1, // Default case ID - will be set when task is selected
         all_day: false,
         reminders: [15],
         calendar_type: 'ics',
@@ -121,7 +126,7 @@ export function CalendarEventModal({ isOpen, onClose, taskId, calendarEvent }: C
   }, [formData.task_id, tasks, calendarEvent]);
 
   // Handle input changes
-  const handleInputChange = (field: keyof CalendarEventInput, value: any) => {
+  const handleInputChange = (field: keyof UnifiedCalendarEventInput, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Clear validation error for this field
@@ -134,7 +139,7 @@ export function CalendarEventModal({ isOpen, onClose, taskId, calendarEvent }: C
     }
   };
   
-  // Handle attendees separately (not part of CalendarEventInput)
+  // Handle attendees separately (not part of UnifiedCalendarEventInput)
   const handleAttendeesChange = (value: string) => {
     setAttendees(value);
   };
@@ -193,8 +198,8 @@ export function CalendarEventModal({ isOpen, onClose, taskId, calendarEvent }: C
       }
     }
 
-    if (formData.case_id === 0) {
-      errors.task_id = 'Please select a task (which will set the case)';
+    if (!formData.case_id || formData.case_id <= 0) {
+      errors.case_id = 'Please select a case or task';
     }
 
     setValidationErrors(errors);
@@ -282,8 +287,25 @@ export function CalendarEventModal({ isOpen, onClose, taskId, calendarEvent }: C
         console.warn('Calendar event editing not yet implemented');
         onClose();
       } else {
-        // Create new event
-        await createCalendarEvent(formData);
+        // Create new event - ensure all required fields are present
+        if (!formData.case_id) {
+          throw new Error('Case ID is required');
+        }
+        
+        // Manually create the event data in the format expected by the database
+        const eventData = {
+          ...formData,
+          case_id: formData.case_id, // Ensure case_id is never undefined
+          event_time: formData.start_time, // Map start_time to event_time
+          // Convert Module B event_type to Module C format
+          event_type: formData.event_type === 'manual' ? 'general_event' : formData.event_type,
+          // Set Module C defaults
+          trigger_automation: false,
+          is_jurisdictional: false
+        };
+        
+        // Call database directly instead of taskStore (which expects old Module B types)
+        await window.electron.db.createCalendarEvent(eventData as any);
         onClose();
       }
     } catch (error) {

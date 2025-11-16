@@ -7,22 +7,19 @@ import './styles/design-system.css';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { MainLayout } from './components/layout/MainLayout';
 import { CaseLayout } from './components/layout/CaseLayout';
-import { NavigationLayout } from './components/navigation/NavigationLayout';
 import { CasePage } from './components/navigation/CasePage';
 import { GlobalPage } from './components/navigation/GlobalPage';
 import { CaseList } from './components/moduleA/CaseList';
-import { CaseDetail } from './components/moduleA/CaseDetail';
 import { CaseForm } from './components/moduleA/CaseForm';
 import { CaseOverview } from './components/moduleA/CaseOverview';
 import { ContactManager } from './components/moduleA/ContactManager';
 import { CaseContactManager } from './components/moduleA/CaseContactManager';
 import { PartiesAndContacts } from './components/moduleA/PartiesAndContacts';
-import { PartiesTab } from './components/moduleA/PartiesTab';
 import { Policies } from './components/moduleA/Policies';
-import { PoliciesTab } from './components/moduleA/PoliciesTab';
 import { Correspondence } from './components/moduleA/Correspondence';
 import { CaseListLayout } from './components/layout/CaseListLayout';
 import { TaskList } from './components/moduleB';
+import { CalendarPage } from './components/moduleC/CalendarPage';
 
 // Simple error boundary for debugging
 class ErrorBoundary extends React.Component<
@@ -166,17 +163,7 @@ function App() {
             {/* Global routes (Tier 1 navigation) */}
             <Route path="/contacts" element={<ContactManager />} />
             <Route path="/tasks" element={<TaskList />} />
-            <Route path="/calendar" element={
-              <GlobalPage title="Calendar" icon="📅">
-                <div className="text-center py-8">
-                  <h2 className="text-xl font-semibold text-sunflower-brown mb-4">Practice Calendar</h2>
-                  <p className="text-sunflower-brown/70">
-                    View all deadlines, appointments, and important dates across all cases.
-                  </p>
-                  <p className="text-sm text-sunflower-brown/50 mt-4">Coming soon...</p>
-                </div>
-              </GlobalPage>
-            } />
+            <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/correspondence" element={<Correspondence />} />
             <Route path="/discovery" element={
               <GlobalPage title="Discovery & Evidence Manager" icon="🔍">
