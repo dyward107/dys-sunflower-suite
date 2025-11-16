@@ -535,6 +535,11 @@ const CorrespondenceFormModal: React.FC<CorrespondenceFormModalProps> = ({ entry
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // STEP 1: Speech recognition test
+  const [isListening, setIsListening] = useState(false);
+  const [speechTest, setSpeechTest] = useState('');
+  const [speechSupported, setSpeechSupported] = useState(false);
+
   // Load persons when case changes
   useEffect(() => {
     if (formData.case_id) {
@@ -551,6 +556,79 @@ const CorrespondenceFormModal: React.FC<CorrespondenceFormModalProps> = ({ entry
       setCasePersons([]);
     }
   }, [formData.case_id]);
+
+  // Check speech recognition support on mount
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    setSpeechSupported(!!SpeechRecognition);
+  }, []);
+
+  // STEP 1: Test speech recognition function
+  const testSpeechRecognition = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      setSpeechTest('❌ Speech recognition not supported in this browser');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    
+    // Try to force local processing (doesn't always work but worth trying)
+    if ('serviceURI' in recognition) {
+      recognition.serviceURI = '';
+    }
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setSpeechTest('🎤 Listening... speak now!');
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setSpeechTest(`✅ Heard: "${transcript}"`);
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event: any) => {
+      let errorMessage = `❌ Error: ${event.error}`;
+      
+      // Provide helpful error explanations
+      switch(event.error) {
+        case 'network':
+          errorMessage += '\n💡 Try: Check internet connection, try different browser, or disable ad blockers';
+          break;
+        case 'not-allowed':
+          errorMessage += '\n💡 Try: Click "Allow" when browser asks for microphone permission';
+          break;
+        case 'no-speech':
+          errorMessage += '\n💡 Try: Speak louder or closer to microphone';
+          break;
+        case 'audio-capture':
+          errorMessage += '\n💡 Try: Check if another app is using your microphone';
+          break;
+        default:
+          errorMessage += '\n💡 Let me know this error and we can try a different approach!';
+      }
+      
+      setSpeechTest(errorMessage);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    try {
+      recognition.start();
+    } catch (error) {
+      setSpeechTest(`❌ Failed to start: ${error}`);
+      setIsListening(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -905,6 +983,96 @@ const CorrespondenceFormModal: React.FC<CorrespondenceFormModalProps> = ({ entry
                 required
               />
             </div>
+
+            {/* STEP 1: Speech Recognition Test */}
+            {speechSupported && (
+              <div style={{
+                padding: 'var(--spacing-md)',
+                backgroundColor: 'var(--color-bg-secondary)',
+                borderRadius: 'var(--border-radius-md)',
+                border: '2px dashed var(--color-sunflower)',
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 'var(--spacing-sm)',
+                }}>
+                  <label style={{
+                    fontSize: 'var(--font-size-sm)',
+                    fontWeight: 600,
+                    color: 'var(--color-text-primary)',
+                  }}>
+                    🧪 Speech Recognition Test
+                  </label>
+                  <button
+                    type="button"
+                    onClick={testSpeechRecognition}
+                    disabled={isListening}
+                    style={{
+                      padding: 'var(--spacing-xs) var(--spacing-sm)',
+                      backgroundColor: isListening ? 'var(--color-sage)' : 'var(--color-sunflower)',
+                      color: isListening ? 'white' : 'var(--color-brown-primary)',
+                      border: 'none',
+                      borderRadius: 'var(--border-radius-sm)',
+                      fontSize: 'var(--font-size-xs)',
+                      fontWeight: 600,
+                      cursor: isListening ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {isListening ? '🎤 Listening...' : '🎤 Test Voice'}
+                  </button>
+                </div>
+                
+                {speechTest && (
+                  <div>
+                    <div style={{
+                      padding: 'var(--spacing-sm)',
+                      backgroundColor: 'var(--color-bg-primary)',
+                      borderRadius: 'var(--border-radius-sm)',
+                      fontSize: 'var(--font-size-sm)',
+                      color: 'var(--color-text-primary)',
+                      fontFamily: 'monospace',
+                      whiteSpace: 'pre-line',
+                    }}>
+                      {speechTest}
+                    </div>
+                    
+                    {speechTest.includes('❌') && (
+                      <button
+                        type="button"
+                        onClick={() => setSpeechTest('')}
+                        style={{
+                          marginTop: 'var(--spacing-sm)',
+                          padding: 'var(--spacing-xs) var(--spacing-sm)',
+                          backgroundColor: 'var(--color-blue-gray)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: 'var(--border-radius-sm)',
+                          fontSize: 'var(--font-size-xs)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Clear & Try Again
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!speechSupported && (
+              <div style={{
+                padding: 'var(--spacing-md)',
+                backgroundColor: 'var(--color-bg-secondary)',
+                borderRadius: 'var(--border-radius-md)',
+                border: '2px solid var(--color-error)',
+                fontSize: 'var(--font-size-sm)',
+                color: 'var(--color-error)',
+              }}>
+                ❌ Speech recognition not supported in this browser
+              </div>
+            )}
 
             {/* Notes */}
             <div>
